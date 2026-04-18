@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "QRelief",
+    "slug": "qrelief-app",
+    "scheme": "qrelief",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#f3f6fb"
+    },
+    "android": {
+      "package": "com.qrelief.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#f3f6fb"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.qrelief.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ],
+    "extra": {
+      "appEnv": "development"
+    },
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
