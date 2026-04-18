@@ -7,7 +7,8 @@ const AUTH_PATHS = new Set([
   "/sign-in",
   "/sign-up",
   "/forgot-password",
-  "/reset-password"
+  "/reset-password",
+  "/complete-beneficiary"
 ]);
 
 export function RootNavigation({ children }: PropsWithChildren) {
@@ -26,6 +27,13 @@ export function RootNavigation({ children }: PropsWithChildren) {
     if (!isAuthenticated) {
       if (!AUTH_PATHS.has(pathname)) {
         router.replace("/sign-in");
+      }
+      return;
+    }
+
+    if (role === "beneficiary" && !beneficiaryRecord) {
+      if (pathname !== "/complete-beneficiary") {
+        router.replace("/complete-beneficiary");
       }
       return;
     }

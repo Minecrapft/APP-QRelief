@@ -177,7 +177,9 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   role: AppRole | null;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (payload: SignUpPayload) => Promise<void>;
+  completeBeneficiaryIntake: (payload: BeneficiaryRegistrationPayload) => Promise<void>;
   signOut: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;

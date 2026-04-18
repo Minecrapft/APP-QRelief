@@ -12,7 +12,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useToast } from "@/providers/ToastProvider";
 
 export default function SignInScreen() {
-  const { signIn, loading } = useAuth();
+  const { signIn, signInWithGoogle, loading } = useAuth();
   const { showToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,6 +38,24 @@ export default function SignInScreen() {
         signInError instanceof Error
           ? signInError.message
           : "Unable to sign in right now.";
+      setError(message);
+      showToast(message, "error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+
+    try {
+      setSubmitting(true);
+      await signInWithGoogle();
+    } catch (signInError) {
+      const message =
+        signInError instanceof Error
+          ? signInError.message
+          : "Unable to continue with Google right now.";
       setError(message);
       showToast(message, "error");
     } finally {
@@ -103,6 +121,18 @@ export default function SignInScreen() {
       ) : null}
 
       <Button label={submitting ? "Signing in..." : "Sign in"} onPress={handleSignIn} />
+      <Button
+        label={submitting || loading ? "Opening Google..." : "Continue with Google"}
+        onPress={handleGoogleSignIn}
+        variant="secondary"
+      />
+
+      <Panel>
+        <Text style={{ color: theme.colors.textMuted, lineHeight: 20 }}>
+          Google works best for returning users whose QRelief account already uses the same email address. New
+          beneficiary registrations still finish the required intake inside the app after sign-in.
+        </Text>
+      </Panel>
 
       <View style={{ gap: 14 }}>
         <Link href="/forgot-password" asChild>

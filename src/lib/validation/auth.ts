@@ -8,6 +8,16 @@ export const signInSchema = z.object({
   password: z.string().min(1, "Password is required.")
 });
 
+export const beneficiaryIntakeSchema = z.object({
+  fullName: z.string().min(2, "Full name is required."),
+  contactNumber: z.string().trim().min(7, "Contact number is required."),
+  address: z.string().trim().min(8, "Address is required."),
+  householdSize: z
+    .string()
+    .refine((value) => Number.isFinite(Number(value)) && Number(value) >= 1, "Household size must be at least 1."),
+  governmentId: z.string().trim().min(4, "Government ID is required.")
+});
+
 export const passwordResetRequestSchema = z.object({
   email: emailSchema
 });

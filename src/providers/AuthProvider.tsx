@@ -1,18 +1,42 @@
 import { router } from "expo-router";
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 
 import { validateStaffInvitation } from "@/features/admin/operations";
 import { supabase } from "@/lib/supabase/client";
 import {
   AppRole,
   AuthContextValue,
+  BeneficiaryRegistrationPayload,
   BeneficiaryRecord,
   ProfileRecord,
   SignUpPayload
 } from "@/types/domain";
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+WebBrowser.maybeCompleteAuthSession();
+
+function parseOAuthCallback(url: string) {
+  const parsed = Linking.parse(url);
+  const code = typeof parsed.queryParams?.code === "string" ? parsed.queryParams.code : null;
+
+  if (code) {
+    return { code, accessToken: null, refreshToken: null };
+  }
+
+  const fragment = url.includes("#") ? url.split("#")[1] ?? "" : "";
+  const fragmentParams = new URLSearchParams(fragment);
+  const accessToken = fragmentParams.get("access_token");
+  const refreshToken = fragmentParams.get("refresh_token");
+
+  return {
+    code: null,
+    accessToken,
+    refreshToken
+  };
+}
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
@@ -122,6 +146,67 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const signInWithGoogle = async () => {
+    setLoading(true);
+
+    try {
+      const redirectTo = Linking.createURL("/auth/callback");
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          queryParams: {
+            prompt: "select_account"
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.url) {
+        throw new Error("Google sign-in could not be started.");
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+
+      if (result.type !== "success") {
+        return;
+      }
+
+      const { code, accessToken, refreshToken } = parseOAuthCallback(result.url);
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (exchangeError) {
+          throw exchangeError;
+        }
+
+        return;
+      }
+
+      if (accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        });
+
+        if (sessionError) {
+          throw sessionError;
+        }
+
+        return;
+      }
+
+      throw new Error("Google sign-in finished without a usable session.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signUp = async ({ email, password, role, fullName, beneficiaryData, inviteCode }: SignUpPayload) => {
     setLoading(true);
 
@@ -200,6 +285,45 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
   };
 
+  const completeBeneficiaryIntake = async (payload: BeneficiaryRegistrationPayload) => {
+    if (!session?.user) {
+      throw new Error("You need to be signed in to complete beneficiary intake.");
+    }
+
+    const resolvedFullName = payload.full_name.trim() || profile?.full_name || "QRelief User";
+
+    setLoading(true);
+
+    try {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ full_name: resolvedFullName })
+        .eq("id", session.user.id);
+
+      if (profileError) {
+        throw profileError;
+      }
+
+      const { error: beneficiaryError } = await supabase.from("beneficiaries").upsert({
+        id: session.user.id,
+        full_name: resolvedFullName,
+        contact_number: payload.contact_number,
+        address: payload.address,
+        household_size: payload.household_size,
+        government_id: payload.government_id
+      });
+
+      if (beneficiaryError) {
+        throw beneficiaryError;
+      }
+
+      await hydrateProfile(session);
+      router.replace("/pending");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signOut = async () => {
     setLoading(true);
 
@@ -223,7 +347,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthenticated: Boolean(session),
       role: (profile?.role as AppRole | undefined) ?? null,
       signIn,
+      signInWithGoogle,
       signUp,
+      completeBeneficiaryIntake,
       signOut,
       requestPasswordReset,
       updatePassword,

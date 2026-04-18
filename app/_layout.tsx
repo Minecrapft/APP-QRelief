@@ -19,6 +19,7 @@ export default function RootLayout() {
               <ConnectionBanner />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
+                <Stack.Screen name="complete-beneficiary" />
                 <Stack.Screen name="(auth)" />
                 <Stack.Screen name="(beneficiary)" />
                 <Stack.Screen name="(staff)" />
