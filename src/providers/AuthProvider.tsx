@@ -1,4 +1,3 @@
-import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { Session } from "@supabase/supabase-js";
@@ -13,18 +12,7 @@ import {
   SignUpPayload
 } from "@/types/domain";
 
-const SESSION_KEY = "qrelief.auth.token";
-
 const AuthContext = createContext<AuthContextValue | null>(null);
-
-async function persistSession(session: Session | null) {
-  if (!session) {
-    await SecureStore.deleteItemAsync(SESSION_KEY);
-    return;
-  }
-
-  await SecureStore.setItemAsync(SESSION_KEY, JSON.stringify(session));
-}
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<Session | null>(null);
@@ -66,33 +54,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const bootstrap = async () => {
       try {
-        const storedSession = await SecureStore.getItemAsync(SESSION_KEY);
+        const {
+          data: { session: currentSession }
+        } = await supabase.auth.getSession();
 
-        if (storedSession) {
-          const parsedSession = JSON.parse(storedSession) as Session;
-          const { data, error } = await supabase.auth.setSession({
-            access_token: parsedSession.access_token,
-            refresh_token: parsedSession.refresh_token
-          });
-
-          if (error) {
-            throw error;
-          }
-
-          if (isMounted) {
-            setSession(data.session);
-            await hydrateProfile(data.session);
-          }
-        } else {
-          const { data } = await supabase.auth.getSession();
-
-          if (isMounted) {
-            setSession(data.session);
-            await hydrateProfile(data.session);
-          }
+        if (!isMounted) {
+          return;
         }
+
+        setSession(currentSession);
+        await hydrateProfile(currentSession);
       } catch (error) {
-        console.warn("Failed to restore session", error);
+        console.warn("Failed to restore auth session", error);
+        if (isMounted) {
+          setSession(null);
+          setProfile(null);
+          setBeneficiaryRecord(null);
+        }
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -100,15 +78,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }
     };
 
-    bootstrap();
+    void bootstrap();
 
     const {
       data: { subscription }
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setSession(nextSession);
-      await persistSession(nextSession);
-      await hydrateProfile(nextSession);
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setLoading(true);
+
+      void (async () => {
+        try {
+          setSession(nextSession);
+          await hydrateProfile(nextSession);
+        } catch (error) {
+          console.warn("Failed to hydrate profile after auth change", error);
+          setProfile(null);
+          setBeneficiaryRecord(null);
+        } finally {
+          setLoading(false);
+        }
+      })();
     });
 
     return () => {
@@ -119,97 +107,111 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        throw error;
+      }
+
+      setSession(data.session);
+      await hydrateProfile(data.session);
+    } finally {
       setLoading(false);
-      throw error;
     }
-
-    setSession(data.session);
-    await persistSession(data.session);
-    await hydrateProfile(data.session);
-    setLoading(false);
   };
 
   const signUp = async ({ email, password, role, fullName, beneficiaryData, inviteCode }: SignUpPayload) => {
     setLoading(true);
 
-    let resolvedFullName = fullName;
-    let resolvedInviteCode: string | undefined;
+    try {
+      let resolvedFullName = fullName;
+      let resolvedInviteCode: string | undefined;
 
-    if (role === "staff") {
-      const invitation = await validateStaffInvitation(email, inviteCode ?? "");
-      resolvedFullName = invitation.full_name;
-      resolvedInviteCode = invitation.invite_code;
-    }
-
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          role,
-          full_name: resolvedFullName,
-          invite_code: resolvedInviteCode ?? null
-        }
+      if (role === "staff") {
+        const invitation = await validateStaffInvitation(email, inviteCode ?? "");
+        resolvedFullName = invitation.full_name;
+        resolvedInviteCode = invitation.invite_code;
       }
-    });
 
-    if (error) {
-      setLoading(false);
-      throw error;
-    }
-
-    const userId = data.user?.id;
-
-    if (userId && role === "beneficiary" && beneficiaryData) {
-      const { error: beneficiaryError } = await supabase.from("beneficiaries").upsert({
-        id: userId,
-        ...beneficiaryData
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role,
+            full_name: resolvedFullName,
+            invite_code: resolvedInviteCode ?? null
+          }
+        }
       });
 
-      if (beneficiaryError) {
-        setLoading(false);
-        throw beneficiaryError;
+      if (error) {
+        throw error;
       }
-    }
 
-    setLoading(false);
-    router.replace("/sign-in");
+      const userId = data.user?.id;
+
+      if (userId && role === "beneficiary" && beneficiaryData) {
+        const { error: beneficiaryError } = await supabase.from("beneficiaries").upsert({
+          id: userId,
+          ...beneficiaryData
+        });
+
+        if (beneficiaryError) {
+          throw beneficiaryError;
+        }
+      }
+
+      router.replace("/sign-in");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestPasswordReset = async (email: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "qrelief://reset-password"
-    });
-    setLoading(false);
 
-    if (error) {
-      throw error;
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: "qrelief://reset-password"
+      });
+
+      if (error) {
+        throw error;
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const updatePassword = async (password: string) => {
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
 
-    if (error) {
-      throw error;
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        throw error;
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   const signOut = async () => {
     setLoading(true);
-    await persistSession(null);
-    await supabase.auth.signOut();
-    setSession(null);
-    setProfile(null);
-    setBeneficiaryRecord(null);
-    setLoading(false);
-    router.replace("/sign-in");
+
+    try {
+      await supabase.auth.signOut();
+      setSession(null);
+      setProfile(null);
+      setBeneficiaryRecord(null);
+      router.replace("/sign-in");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = useMemo<AuthContextValue>(
@@ -227,7 +229,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       updatePassword,
       refreshProfile: () => hydrateProfile(session)
     }),
-    [beneficiaryRecord, loading, profile, session],
+    [beneficiaryRecord, loading, profile, session]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

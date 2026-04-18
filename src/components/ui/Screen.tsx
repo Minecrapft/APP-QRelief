@@ -1,7 +1,6 @@
 import { PropsWithChildren } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { theme } from "@/constants/theme";
 
@@ -13,37 +12,19 @@ interface ScreenProps extends PropsWithChildren {
 export function Screen({ title, subtitle, children }: ScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.gridLinesVertical} />
-      <View style={styles.gridLinesHorizontal} />
+      <View style={styles.backgroundOrbPrimary} />
+      <View style={styles.backgroundOrbSecondary} />
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.topBar}>
-          <View style={styles.topBarBadge}>
-            <MaterialIcons name="verified-user" size={16} color={theme.colors.primary} />
-            <Text style={styles.topBarBadgeText}>QRELIEF SIGNAL</Text>
-          </View>
-        </View>
         <View style={styles.heroCard}>
           <View style={styles.heroEyebrow}>
-            <Text style={styles.heroEyebrowText}>Mission-Critical Relief Operations</Text>
+            <Text style={styles.heroEyebrowText}>QRelief Operations Suite</Text>
           </View>
           <View style={styles.hero}>
-            <View style={styles.titleRow}>
-              <View style={styles.titleIconWrap}>
-                <MaterialIcons name="grid-view" size={20} color={theme.colors.textOnDark} />
-              </View>
-              <View style={{ flex: 1, gap: 8 }}>
-                <Text style={styles.title}>{title}</Text>
-                {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-              </View>
-            </View>
+            <Text style={styles.title}>{title}</Text>
+            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
           </View>
         </View>
-        <View style={styles.card}>
-          <View style={styles.cardRail} />
-          <View style={styles.cardInner}>
-            {children}
-          </View>
-        </View>
+        <View style={styles.card}>{children}</View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -54,125 +35,77 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.background
   },
-  gridLinesVertical: {
+  backgroundOrbPrimary: {
     position: "absolute",
-    top: 0,
-    bottom: 0,
-    left: 28,
-    width: 1,
-    backgroundColor: "#d9e6f7"
+    top: -120,
+    right: -40,
+    width: 240,
+    height: 240,
+    borderRadius: 999,
+    backgroundColor: "#d8e7f6"
   },
-  gridLinesHorizontal: {
+  backgroundOrbSecondary: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    top: 104,
-    height: 1,
-    backgroundColor: "#deebfa"
+    top: 90,
+    left: -90,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    backgroundColor: "#f8e8d2"
   },
   content: {
     flexGrow: 1,
     paddingHorizontal: 18,
-    paddingTop: 10,
+    paddingTop: 14,
     paddingBottom: 28,
-    gap: 14
-  },
-  topBar: {
-    minHeight: 30,
-    justifyContent: "center"
-  },
-  topBarBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 10,
-    minHeight: 28,
-    borderRadius: theme.radii.sm,
-    borderWidth: 1,
-    borderColor: "#bad0ef",
-    backgroundColor: "#f8fbff"
-  },
-  topBarBadgeText: {
-    fontSize: 11,
-    fontFamily: theme.fonts.ui,
-    letterSpacing: 0.9,
-    color: theme.colors.primary
+    gap: 18
   },
   heroCard: {
     borderRadius: theme.radii.lg,
-    padding: 18,
+    padding: 22,
     backgroundColor: theme.colors.surfaceStrong,
     borderWidth: 1,
-    borderColor: "#15448b",
+    borderColor: "#274a70",
     ...theme.shadow
   },
   heroEyebrow: {
     alignSelf: "flex-start",
-    paddingHorizontal: 10,
-    minHeight: 24,
-    borderRadius: theme.radii.sm,
+    paddingHorizontal: 12,
+    minHeight: 30,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)"
+    backgroundColor: "rgba(255,255,255,0.1)"
   },
   heroEyebrowText: {
-    fontSize: 10,
-    fontFamily: theme.fonts.ui,
-    letterSpacing: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.6,
     textTransform: "uppercase",
-    color: "#d4e4ff"
+    color: "#bcd5ea"
   },
   hero: {
     gap: 10,
-    paddingTop: 14
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12
-  },
-  titleIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: theme.radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)"
+    paddingTop: 16
   },
   title: {
     fontSize: 32,
-    lineHeight: 34,
-    fontFamily: theme.fonts.heading,
+    lineHeight: 36,
+    fontWeight: "800",
     color: theme.colors.textOnDark
   },
   subtitle: {
     fontSize: 15,
-    lineHeight: 21,
-    fontFamily: theme.fonts.body,
-    color: "#d3e2ff"
+    lineHeight: 22,
+    color: "#c6d9eb"
   },
   card: {
-    flexDirection: "row",
+    gap: 16,
+    padding: 18,
     borderRadius: theme.radii.lg,
-    backgroundColor: theme.colors.surface,
+    backgroundColor: "rgba(255,255,255,0.9)",
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     ...theme.shadow
-  },
-  cardRail: {
-    width: 6,
-    borderTopLeftRadius: theme.radii.lg,
-    borderBottomLeftRadius: theme.radii.lg,
-    backgroundColor: theme.colors.primary
-  },
-  cardInner: {
-    flex: 1,
-    gap: 16,
-    padding: 18
-  },
+  }
 });

@@ -1,7 +1,6 @@
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,6 +17,7 @@ export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSignIn = async () => {
     setError(null);
@@ -31,6 +31,7 @@ export default function SignInScreen() {
     }
 
     try {
+      setSubmitting(true);
       await signIn(parsed.data.email, parsed.data.password);
     } catch (signInError) {
       const message =
@@ -39,6 +40,8 @@ export default function SignInScreen() {
           : "Unable to sign in right now.";
       setError(message);
       showToast(message, "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -54,19 +57,13 @@ export default function SignInScreen() {
           subtitle="Field teams, beneficiaries, and administrators use the same secure entry point with role-based routing."
         />
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {[
-            { label: "Role-aware access", icon: "verified-user" as const },
-            { label: "Event-ready workflow", icon: "emergency" as const },
-            { label: "Audited records", icon: "fact-check" as const }
-          ].map((item) => (
+          {["Role-aware access", "Event-ready workflow", "Audited distribution records"].map((item) => (
             <View
-              key={item.label}
+              key={item}
               style={{
-                flexDirection: "row",
-                gap: 8,
                 paddingHorizontal: 12,
                 minHeight: 34,
-                borderRadius: theme.radii.sm,
+                borderRadius: 999,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: "rgba(255,255,255,0.08)",
@@ -74,8 +71,7 @@ export default function SignInScreen() {
                 borderColor: "rgba(255,255,255,0.12)"
               }}
             >
-              <MaterialIcons name={item.icon} size={14} color={theme.colors.accent} />
-              <Text style={{ color: theme.colors.textOnDark, fontSize: 12, fontFamily: theme.fonts.ui }}>{item.label}</Text>
+              <Text style={{ color: theme.colors.textOnDark, fontSize: 12, fontWeight: "700" }}>{item}</Text>
             </View>
           ))}
         </View>
@@ -106,16 +102,16 @@ export default function SignInScreen() {
         </Panel>
       ) : null}
 
-      <Button label={loading ? "Signing in..." : "Sign in"} onPress={handleSignIn} />
+      <Button label={submitting ? "Signing in..." : "Sign in"} onPress={handleSignIn} />
 
       <View style={{ gap: 14 }}>
         <Link href="/forgot-password" asChild>
           <Pressable>
-            <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.ui }}>Forgot password?</Text>
+            <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Forgot password?</Text>
           </Pressable>
         </Link>
         <Pressable onPress={() => router.push("/sign-up")}>
-          <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.ui }}>
+          <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>
             New to QRelief? Create an account
           </Text>
         </Pressable>

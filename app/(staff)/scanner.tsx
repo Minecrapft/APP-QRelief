@@ -3,13 +3,11 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Panel } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
-import { theme } from "@/constants/theme";
 import { lookupBeneficiaryForEvent } from "@/features/staff/distribution";
 import { useOperations } from "@/providers/OperationsProvider";
 import { useToast } from "@/providers/ToastProvider";
@@ -96,15 +94,15 @@ export default function StaffScannerScreen() {
       />
 
       {!hasPermission ? (
-        <View style={{ gap: 12, padding: 18, borderRadius: theme.radii.md, backgroundColor: theme.colors.warningBg, borderWidth: 1, borderColor: "#eed4a1" }}>
-          <Text style={{ color: theme.colors.warningText, fontFamily: theme.fonts.body }}>
+        <View style={{ gap: 12, padding: 18, borderRadius: 18, backgroundColor: "#fff7ed" }}>
+          <Text style={{ color: "#92400e" }}>
             Camera access is needed for live QR scanning. You can still use the manual lookup fallback below.
           </Text>
           <Button label="Allow camera" onPress={() => requestPermission().then(() => undefined)} />
         </View>
       ) : (
         <View style={{ gap: 12 }}>
-          <View style={{ overflow: "hidden", borderRadius: theme.radii.md, borderWidth: 2, borderColor: theme.colors.primary, backgroundColor: theme.colors.scannerFrame }}>
+          <View style={{ overflow: "hidden", borderRadius: 24 }}>
             <CameraView
               style={{ height: 320 }}
               facing="back"
@@ -113,18 +111,12 @@ export default function StaffScannerScreen() {
               onBarcodeScanned={({ data }) => void handleLookup(data)}
             />
           </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: theme.radii.sm, backgroundColor: theme.colors.panel }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <MaterialIcons name="flashlight-on" size={18} color={theme.colors.primary} />
-              <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.ui }}>Torch</Text>
-            </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ color: "#14532d", fontWeight: "700" }}>Torch</Text>
             <Switch value={torchEnabled} onValueChange={setTorchEnabled} />
           </View>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 14, borderWidth: 1, borderColor: theme.colors.divider, borderRadius: theme.radii.sm, backgroundColor: theme.colors.panel }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <MaterialIcons name="volume-up" size={18} color={theme.colors.primary} />
-              <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.ui }}>Success beep logging</Text>
-            </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ color: "#14532d", fontWeight: "700" }}>Success beep logging</Text>
             <Switch value={soundEnabled} onValueChange={setSoundEnabled} />
           </View>
         </View>
@@ -136,7 +128,7 @@ export default function StaffScannerScreen() {
         onChangeText={setManualLookup}
         placeholder="QR token, beneficiary ID, name, or contact number"
       />
-      {error ? <Text style={{ color: theme.colors.dangerText, fontFamily: theme.fonts.ui }}>{error}</Text> : null}
+      {error ? <Text style={{ color: "#9f1239" }}>{error}</Text> : null}
       <Button
         label={isBusy ? "Looking up..." : "Lookup manually"}
         onPress={() => handleLookup(manualLookup)}
@@ -146,7 +138,7 @@ export default function StaffScannerScreen() {
         onPress={() => router.push("/(staff)")}
         style={{ minHeight: 48, alignItems: "center", justifyContent: "center" }}
       >
-        <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.ui }}>Back to assigned events</Text>
+        <Text style={{ color: "#166534", fontWeight: "700" }}>Back to assigned events</Text>
       </Pressable>
     </Screen>
   );

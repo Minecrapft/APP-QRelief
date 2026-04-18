@@ -1,5 +1,4 @@
 import { Pressable, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { theme } from "@/constants/theme";
 
@@ -22,27 +21,22 @@ export function Button({ label, onPress, variant = "primary", accessibilityLabel
         minHeight: 56,
         alignItems: "center",
         justifyContent: "center",
-        borderRadius: theme.radii.sm,
-        backgroundColor: isPrimary ? theme.colors.primary : theme.colors.surface,
+        borderRadius: theme.radii.md,
+        backgroundColor: isPrimary ? theme.colors.primary : theme.colors.surfaceMuted,
         paddingHorizontal: 20,
         borderWidth: 1,
-        borderColor: isPrimary ? theme.colors.primaryStrong : theme.colors.divider,
+        borderColor: isPrimary ? theme.colors.primaryStrong : theme.colors.cardBorder,
         opacity: pressed ? 0.92 : 1,
-        transform: [{ scale: pressed ? 0.99 : 1 }],
+        transform: [{ scale: pressed ? 0.995 : 1 }],
         ...theme.shadow
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <MaterialIcons
-          name={isPrimary ? "east" : "arrow-forward-ios"}
-          size={isPrimary ? 18 : 14}
-          color={isPrimary ? theme.colors.textOnDark : theme.colors.primary}
-        />
+        {isPrimary ? <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: "#d8ecfb" }} /> : null}
         <Text
           style={{
             fontSize: 15,
-            fontFamily: theme.fonts.ui,
-            letterSpacing: 0.2,
+            fontWeight: "800",
             color: isPrimary ? theme.colors.textOnDark : theme.colors.text
           }}
         >

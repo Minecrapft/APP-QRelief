@@ -18,7 +18,7 @@ interface RoleSelectProps {
 export function RoleSelect({ label, value, onChange, options }: RoleSelectProps) {
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 12, fontFamily: theme.fonts.ui, color: theme.colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>{label}</Text>
       <View style={{ flexDirection: "row", gap: 10 }}>
         {options.map((option) => {
           const selected = option.value === value;
@@ -32,15 +32,15 @@ export function RoleSelect({ label, value, onChange, options }: RoleSelectProps)
               style={{
                 flex: 1,
                 minHeight: 56,
-                borderRadius: theme.radii.sm,
+                borderRadius: theme.radii.md,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: selected ? theme.colors.primary : theme.colors.surface,
+                backgroundColor: selected ? theme.colors.surfaceStrong : theme.colors.surfaceMuted,
                 borderWidth: 1,
-                borderColor: selected ? theme.colors.primaryStrong : theme.colors.divider
+                borderColor: selected ? "#274a70" : theme.colors.cardBorder
               }}
             >
-              <Text style={{ color: selected ? theme.colors.textOnDark : theme.colors.text, fontFamily: theme.fonts.ui }}>
+              <Text style={{ color: selected ? theme.colors.textOnDark : theme.colors.text, fontWeight: "800" }}>
                 {option.label}
               </Text>
             </Pressable>

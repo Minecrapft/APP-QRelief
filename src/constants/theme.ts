@@ -1,50 +1,36 @@
 export const theme = {
   colors: {
-    background: "#F3FAFF",
+    background: "#f3f6fb",
     surface: "#ffffff",
-    surfaceMuted: "#E8F1FF",
-    surfaceStrong: "#072B61",
-    panel: "#F8FBFF",
-    cardBorder: "#C7D7EE",
-    divider: "#D7E3F5",
-    text: "#10213A",
-    textMuted: "#5B6E8A",
-    textOnDark: "#F5FAFF",
-    primary: "#0052CC",
-    primaryStrong: "#003F9E",
-    accent: "#FF7A00",
-    accentMuted: "#FFF1E4",
-    successBg: "#E9F2FF",
-    successText: "#0052CC",
-    warningBg: "#FFF3E8",
-    warningText: "#B25900",
-    dangerBg: "#FFF0F0",
-    dangerText: "#C62828",
-    neutralBg: "#EEF2F7",
-    neutralText: "#5F6B7A",
-    inputBg: "#FFFFFF",
-    inputBorder: "#BFCFE6",
-    inputBorderFocus: "#0052CC",
-    scannerFrame: "#0B1F3A"
+    surfaceMuted: "#eef3f9",
+    surfaceStrong: "#0f2742",
+    cardBorder: "#d9e3ef",
+    text: "#10243e",
+    textMuted: "#60758f",
+    textOnDark: "#f7fbff",
+    primary: "#1f5f8b",
+    primaryStrong: "#174968",
+    accent: "#d97706",
+    successBg: "#e9f7ef",
+    successText: "#17603a",
+    warningBg: "#fff4df",
+    warningText: "#9a5b00",
+    dangerBg: "#fff0f1",
+    dangerText: "#a12f3f",
+    inputBg: "#f8fbfd",
+    inputBorder: "#c9d7e6",
+    inputBorderFocus: "#1f5f8b"
   },
   radii: {
-    sm: 4,
-    md: 8,
-    lg: 14
-  },
-  fonts: {
-    heading: "PublicSans_800ExtraBold",
-    headingStrong: "PublicSans_700Bold",
-    ui: "Inter_600SemiBold",
-    body: "Inter_400Regular",
-    bodyStrong: "Inter_700Bold",
-    mono: "Courier"
+    sm: 14,
+    md: 20,
+    lg: 28
   },
   shadow: {
-    shadowColor: "#072B61",
+    shadowColor: "#0f2742",
     shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 4
   }
 } as const;

@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
@@ -31,18 +30,6 @@ export default function AdminHomeScreen() {
           title="Relief oversight at a glance"
           subtitle="Track approvals, event readiness, and field activity without jumping between modules."
         />
-        <View style={{ flexDirection: "row", gap: 10, flexWrap: "wrap" }}>
-          {[
-            { icon: "notifications-active", label: "Live alerts" },
-            { icon: "inventory-2", label: "Stock control" },
-            { icon: "map", label: "Field visibility" }
-          ].map((item) => (
-            <View key={item.label} style={{ flexDirection: "row", gap: 8, alignItems: "center", paddingHorizontal: 10, minHeight: 28, borderRadius: theme.radii.sm, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.08)" }}>
-              <MaterialIcons name={item.icon as never} size={14} color={theme.colors.accent} />
-              <Text style={{ color: theme.colors.textOnDark, fontSize: 12, fontFamily: theme.fonts.ui }}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
       </Panel>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
@@ -89,10 +76,10 @@ export default function AdminHomeScreen() {
               style={{
                 gap: 6,
                 padding: 16,
-                borderRadius: theme.radii.sm,
-                backgroundColor: theme.colors.panel,
+                borderRadius: theme.radii.md,
+                backgroundColor: theme.colors.surfaceMuted,
                 borderWidth: 1,
-                borderColor: theme.colors.divider
+                borderColor: theme.colors.cardBorder
               }}
             >
               <Text style={{ fontWeight: "800", color: theme.colors.text }}>{entry.type}</Text>

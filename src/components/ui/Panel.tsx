@@ -1,6 +1,5 @@
 import { PropsWithChildren, ReactNode } from "react";
 import { StyleSheet, Text, View, ViewStyle } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { theme } from "@/constants/theme";
 
@@ -23,12 +22,7 @@ interface MetricCardProps {
 }
 
 export function Panel({ children, tone = "default", style }: PanelProps) {
-  return (
-    <View style={[styles.panel, panelToneStyles[tone], style]}>
-      <View style={[styles.dockAccent, dockAccentStyles[tone]]} />
-      <View style={styles.panelBody}>{children}</View>
-    </View>
-  );
+  return <View style={[styles.panel, panelToneStyles[tone], style]}>{children}</View>;
 }
 
 export function SectionHeader({ eyebrow, title, subtitle, action }: SectionHeaderProps) {
@@ -39,11 +33,7 @@ export function SectionHeader({ eyebrow, title, subtitle, action }: SectionHeade
         <Text style={styles.sectionTitle}>{title}</Text>
         {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
       </View>
-      {action ?? (
-        <View style={styles.sectionBadge}>
-          <MaterialIcons name="chevron-right" size={18} color={theme.colors.primary} />
-        </View>
-      )}
+      {action}
     </View>
   );
 }
@@ -61,50 +51,32 @@ export function MetricCard({ label, value, tone = "default" }: MetricCardProps) 
 
 const styles = StyleSheet.create({
   panel: {
-    flexDirection: "row",
+    gap: 14,
+    padding: 18,
     borderRadius: theme.radii.md,
     borderWidth: 1
-  },
-  dockAccent: {
-    width: 6
-  },
-  panelBody: {
-    flex: 1,
-    gap: 14,
-    padding: 16
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 12
   },
-  sectionBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: theme.radii.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: theme.colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: theme.colors.divider
-  },
   eyebrow: {
     fontSize: 11,
-    fontFamily: theme.fonts.ui,
-    letterSpacing: 1,
+    fontWeight: "800",
+    letterSpacing: 0.9,
     textTransform: "uppercase",
     color: theme.colors.accent
   },
   sectionTitle: {
     fontSize: 18,
     lineHeight: 22,
-    fontFamily: theme.fonts.headingStrong,
+    fontWeight: "800",
     color: theme.colors.text
   },
   sectionSubtitle: {
     fontSize: 14,
     lineHeight: 20,
-    fontFamily: theme.fonts.body,
     color: theme.colors.textMuted
   },
   metricCard: {
@@ -112,19 +84,19 @@ const styles = StyleSheet.create({
     minWidth: 140,
     gap: 6,
     padding: 16,
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.radii.md,
     borderWidth: 1,
-    borderColor: theme.colors.divider,
-    backgroundColor: theme.colors.panel
+    borderColor: theme.colors.cardBorder,
+    backgroundColor: theme.colors.surface
   },
   metricCardAccent: {
     backgroundColor: theme.colors.surfaceStrong,
-    borderColor: "#1c56a7"
+    borderColor: "#274a70"
   },
   metricValue: {
     fontSize: 28,
     lineHeight: 32,
-    fontFamily: theme.fonts.heading,
+    fontWeight: "800",
     color: theme.colors.text
   },
   metricValueAccent: {
@@ -133,11 +105,10 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: theme.fonts.ui,
     color: theme.colors.textMuted
   },
   metricLabelAccent: {
-    color: "#d2e1ff"
+    color: "#bed4e7"
   }
 });
 
@@ -148,29 +119,14 @@ const panelToneStyles = StyleSheet.create({
   },
   strong: {
     backgroundColor: theme.colors.surfaceStrong,
-    borderColor: "#1c56a7"
+    borderColor: "#274a70"
   },
   success: {
-    backgroundColor: "#edf4ff",
-    borderColor: "#bad2fb"
+    backgroundColor: theme.colors.successBg,
+    borderColor: "#c3e3cc"
   },
   warning: {
     backgroundColor: theme.colors.warningBg,
     borderColor: "#eed4a1"
-  }
-});
-
-const dockAccentStyles = StyleSheet.create({
-  default: {
-    backgroundColor: theme.colors.primary
-  },
-  strong: {
-    backgroundColor: theme.colors.accent
-  },
-  success: {
-    backgroundColor: theme.colors.primary
-  },
-  warning: {
-    backgroundColor: theme.colors.accent
   }
 });

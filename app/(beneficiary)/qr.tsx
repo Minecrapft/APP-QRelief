@@ -2,12 +2,9 @@ import * as Brightness from "expo-brightness";
 import { useEffect, useRef, useState } from "react";
 import { Share, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
-import { Panel, SectionHeader } from "@/components/ui/Panel";
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
-import { theme } from "@/constants/theme";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function BeneficiaryQrScreen() {
@@ -54,37 +51,20 @@ export default function BeneficiaryQrScreen() {
       title="My QR code"
       subtitle="Show this full-screen code during distribution. Screen brightness is boosted while this page is open."
     >
-      <Panel tone="strong">
-        <SectionHeader
-          eyebrow="Tactical QR"
-          title="Present this code at the distribution point"
-          subtitle="Brightness is boosted automatically to improve outdoor scanning."
-        />
-      </Panel>
-
-      <View style={{ alignItems: "center", gap: 16, padding: 20, borderRadius: theme.radii.md, backgroundColor: "#ffffff", borderWidth: 1, borderColor: theme.colors.divider }}>
+      <View style={{ alignItems: "center", gap: 16, padding: 20, borderRadius: 24, backgroundColor: "#ffffff" }}>
         {beneficiaryRecord?.qr_token ? (
           <>
-            <View style={{ padding: 16, borderRadius: theme.radii.sm, borderWidth: 1, borderColor: theme.colors.divider, backgroundColor: "#fff" }}>
-              <QRCode value={beneficiaryRecord.qr_token} size={220} />
-            </View>
-            <Text style={{ color: theme.colors.text, textAlign: "center", fontFamily: theme.fonts.mono }}>{beneficiaryRecord.qr_token}</Text>
+            <QRCode value={beneficiaryRecord.qr_token} size={220} />
+            <Text style={{ color: "#166534", textAlign: "center" }}>{beneficiaryRecord.qr_token}</Text>
           </>
         ) : (
-          <Text style={{ color: theme.colors.warningText, textAlign: "center", fontFamily: theme.fonts.body }}>
+          <Text style={{ color: "#92400e", textAlign: "center" }}>
             Your QR token will appear here after admin approval.
           </Text>
         )}
       </View>
 
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 14, borderRadius: theme.radii.sm, backgroundColor: theme.colors.accentMuted, borderWidth: 1, borderColor: "#ffd4ad" }}>
-        <MaterialIcons name="wb-sunny" size={18} color={theme.colors.accent} />
-        <Text style={{ color: theme.colors.warningText, flex: 1, fontFamily: theme.fonts.body }}>
-          Brightness boost tip: face the screen directly toward the scanner in bright outdoor light.
-        </Text>
-      </View>
-
-      {message ? <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.ui }}>{message}</Text> : null}
+      {message ? <Text style={{ color: "#166534" }}>{message}</Text> : null}
       <Button label="Share QR access" onPress={shareQrToken} />
     </Screen>
   );

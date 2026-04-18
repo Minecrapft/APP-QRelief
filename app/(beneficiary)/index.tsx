@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
@@ -36,16 +35,6 @@ export default function BeneficiaryHomeScreen() {
           title="Registration status"
           subtitle={isApproved ? "Approved for relief operations." : "Pending approval from an administrator."}
         />
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <MaterialIcons
-            name={isApproved ? "task-alt" : "pending-actions"}
-            size={18}
-            color={isApproved ? theme.colors.primary : theme.colors.accent}
-          />
-          <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.ui }}>
-            {isApproved ? "Ready for verification at active operations." : "Waiting for admin review before QR activation."}
-          </Text>
-        </View>
       </Panel>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
@@ -58,7 +47,7 @@ export default function BeneficiaryHomeScreen() {
       </View>
 
       <View style={{ gap: 12 }}>
-        <Button label="Show my QR code" onPress={() => router.push("/(beneficiary)/qr")} />
+        <Button label="Open my QR code" onPress={() => router.push("/(beneficiary)/qr")} />
         <Button label="Browse events" onPress={() => router.push("/(beneficiary)/events")} variant="secondary" />
         <Button label="View claim history" onPress={() => router.push("/(beneficiary)/history")} variant="secondary" />
         <Button label="Edit profile" onPress={() => router.push("/(beneficiary)/profile")} variant="secondary" />
@@ -77,10 +66,10 @@ export default function BeneficiaryHomeScreen() {
             style={{
               gap: 4,
               padding: 16,
-              borderRadius: theme.radii.sm,
-              backgroundColor: theme.colors.panel,
+              borderRadius: theme.radii.md,
+              backgroundColor: theme.colors.surfaceMuted,
               borderWidth: 1,
-              borderColor: theme.colors.divider
+              borderColor: theme.colors.cardBorder
             }}
           >
             <Text style={{ color: theme.colors.text, fontWeight: "800" }}>{event.title}</Text>
@@ -105,10 +94,10 @@ export default function BeneficiaryHomeScreen() {
             style={{
               gap: 4,
               padding: 16,
-              borderRadius: theme.radii.sm,
-              backgroundColor: theme.colors.panel,
+              borderRadius: theme.radii.md,
+              backgroundColor: theme.colors.surfaceMuted,
               borderWidth: 1,
-              borderColor: theme.colors.divider
+              borderColor: theme.colors.cardBorder
             }}
           >
             <Text style={{ color: theme.colors.text, fontWeight: "800" }}>

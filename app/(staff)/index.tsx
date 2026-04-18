@@ -1,7 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
@@ -34,13 +33,6 @@ export default function StaffHomeScreen() {
           title="Assigned event coverage"
           subtitle="Open the scanner from any event you are responsible for today."
         />
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-          {["Queue status", "Stock readiness", "Rapid verification"].map((label) => (
-            <View key={label} style={{ paddingHorizontal: 10, minHeight: 28, borderRadius: theme.radii.sm, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.08)", justifyContent: "center" }}>
-              <Text style={{ color: theme.colors.textOnDark, fontSize: 12, fontFamily: theme.fonts.ui }}>{label}</Text>
-            </View>
-          ))}
-        </View>
       </Panel>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
@@ -95,18 +87,14 @@ export default function StaffHomeScreen() {
               style={{
                 gap: 4,
                 padding: 16,
-                borderRadius: theme.radii.sm,
-                backgroundColor: "rgba(255,255,255,0.86)",
+                borderRadius: theme.radii.md,
+                backgroundColor: "rgba(255,255,255,0.6)",
                 borderWidth: 1,
-                borderColor: "#c4d7f0"
+                borderColor: "rgba(255,255,255,0.5)"
               }}
             >
-              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <Text style={{ color: theme.colors.text, fontFamily: theme.fonts.headingStrong }}>{event.title}</Text>
-                <MaterialIcons name="qr-code-scanner" size={18} color={theme.colors.primary} />
-              </View>
+              <Text style={{ color: theme.colors.text, fontWeight: "800" }}>{event.title}</Text>
               <Text style={{ color: theme.colors.textMuted }}>{event.location}</Text>
-              <Text style={{ color: theme.colors.primary, fontFamily: theme.fonts.ui }}>Open scanner</Text>
             </Pressable>
           ))
         )}
@@ -129,10 +117,10 @@ export default function StaffHomeScreen() {
               style={{
                 gap: 4,
                 padding: 16,
-                borderRadius: theme.radii.sm,
-                backgroundColor: theme.colors.panel,
+                borderRadius: theme.radii.md,
+                backgroundColor: theme.colors.surfaceMuted,
                 borderWidth: 1,
-                borderColor: theme.colors.divider
+                borderColor: theme.colors.cardBorder
               }}
             >
               <Text style={{ color: theme.colors.text, fontWeight: "800" }}>

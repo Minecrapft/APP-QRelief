@@ -9,12 +9,12 @@ interface InputProps extends TextInputProps {
 export function Input({ label, multiline, style, ...props }: InputProps) {
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 12, fontFamily: theme.fonts.ui, color: theme.colors.textMuted, letterSpacing: 0.8, textTransform: "uppercase" }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>{label}</Text>
       <View
         style={{
           borderWidth: 1,
           borderColor: theme.colors.inputBorder,
-          borderRadius: theme.radii.sm,
+          borderRadius: theme.radii.md,
           backgroundColor: theme.colors.inputBg,
           paddingHorizontal: 14,
           paddingVertical: multiline ? 6 : 0
@@ -27,8 +27,7 @@ export function Input({ label, multiline, style, ...props }: InputProps) {
             {
               minHeight: multiline ? 96 : 54,
               color: theme.colors.text,
-              fontSize: 15,
-              fontFamily: theme.fonts.body
+              fontSize: 15
             },
             style
           ]}

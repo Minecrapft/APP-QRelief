@@ -1,5 +1,4 @@
 import { StyleSheet, Text, View } from "react-native";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { theme } from "@/constants/theme";
 import { useOperations } from "@/providers/OperationsProvider";
@@ -22,14 +21,7 @@ export function ConnectionBanner() {
 
   return (
     <View style={[styles.banner, tone]}>
-      <View style={styles.row}>
-        <MaterialIcons
-          name={!isOnline ? "cloud-off" : syncStatus === "failed" ? "warning-amber" : "sync"}
-          size={16}
-          color={theme.colors.primary}
-        />
-        <Text style={styles.label}>{!isOnline ? "Offline" : syncStatus === "failed" ? "Sync Attention" : "Queue Status"}</Text>
-      </View>
+      <Text style={styles.label}>{!isOnline ? "Offline" : syncStatus === "failed" ? "Sync Attention" : "Queue Status"}</Text>
       <Text style={styles.message}>{message}</Text>
     </View>
   );
@@ -41,7 +33,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: theme.radii.sm,
+    borderRadius: theme.radii.md,
     borderWidth: 1
   },
   info: {
@@ -54,8 +46,8 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 12,
-    fontFamily: theme.fonts.ui,
-    letterSpacing: 0.8,
+    fontWeight: "800",
+    letterSpacing: 0.6,
     textTransform: "uppercase",
     color: theme.colors.text
   },
@@ -63,12 +55,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: theme.fonts.body,
     color: theme.colors.textMuted
-  },
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8
   }
 });
