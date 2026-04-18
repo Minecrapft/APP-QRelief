@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
+import { SignOutAction } from "@/components/ui/SignOutAction";
 import { theme } from "@/constants/theme";
 import { fetchBeneficiaryClaimHistory, fetchBeneficiaryEvents } from "@/features/beneficiary/portal";
 import { useAuth } from "@/providers/AuthProvider";
@@ -28,6 +29,7 @@ export default function BeneficiaryHomeScreen() {
     <Screen
       title={`Welcome, ${profile?.full_name ?? "Beneficiary"}`}
       subtitle="View your approval status, upcoming events, QR access, and recent claims from one place."
+      action={<SignOutAction onConfirm={signOut} />}
     >
       <Panel tone={isApproved ? "success" : "warning"}>
         <SectionHeader
@@ -110,8 +112,6 @@ export default function BeneficiaryHomeScreen() {
         ))}
         {history.length === 0 ? <Text style={{ color: theme.colors.textMuted }}>No claims recorded yet.</Text> : null}
       </Panel>
-
-      <Button label="Sign out" onPress={signOut} variant="secondary" />
     </Screen>
   );
 }

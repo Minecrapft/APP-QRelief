@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
+import { SignOutAction } from "@/components/ui/SignOutAction";
 import { theme } from "@/constants/theme";
 import { fetchAssignedEvents, fetchRecentDistributions } from "@/features/staff/distribution";
 import { useAuth } from "@/providers/AuthProvider";
@@ -26,6 +27,7 @@ export default function StaffHomeScreen() {
     <Screen
       title={`Hello, ${profile?.full_name ?? "Staff"}`}
       subtitle="Work only from your assigned events, then scan or manually verify each beneficiary before distribution."
+      action={<SignOutAction onConfirm={signOut} />}
     >
       <Panel tone="strong">
         <SectionHeader
@@ -133,8 +135,6 @@ export default function StaffHomeScreen() {
           ))
         )}
       </Panel>
-
-      <Button label="Sign out" onPress={signOut} variant="secondary" />
     </Screen>
   );
 }

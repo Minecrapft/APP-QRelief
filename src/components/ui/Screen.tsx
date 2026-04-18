@@ -1,4 +1,4 @@
-import { PropsWithChildren } from "react";
+import { PropsWithChildren, ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -7,14 +7,19 @@ import { theme } from "@/constants/theme";
 interface ScreenProps extends PropsWithChildren {
   title: string;
   subtitle?: string;
+  action?: ReactNode;
 }
 
-export function Screen({ title, subtitle, children }: ScreenProps) {
+export function Screen({ title, subtitle, action, children }: ScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.backgroundOrbPrimary} />
       <View style={styles.backgroundOrbSecondary} />
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.topRow}>
+          <View style={{ flex: 1 }} />
+          {action ? <View>{action}</View> : null}
+        </View>
         <View style={styles.heroCard}>
           <View style={styles.heroEyebrow}>
             <Text style={styles.heroEyebrowText}>QRelief Operations Suite</Text>
@@ -59,6 +64,12 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 28,
     gap: 18
+  },
+  topRow: {
+    minHeight: 36,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center"
   },
   heroCard: {
     borderRadius: theme.radii.lg,

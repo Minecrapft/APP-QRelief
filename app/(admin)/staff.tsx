@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Text, View } from "react-native";
+import { Alert, Pressable, Text, View } from "react-native";
 
 import { EmptyState, InlineMessage, LoadingState } from "@/components/ui/AsyncState";
 import { Button } from "@/components/ui/Button";
@@ -16,7 +16,7 @@ export default function StaffScreen() {
   const [invitations, setInvitations] = useState<StaffInvitationRecord[]>([]);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [expiresAt, setExpiresAt] = useState("");
+  const [expiresAt, setExpiresAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,11 +48,11 @@ export default function StaffScreen() {
       const invitation = await createStaffInvitation({
         email: email.trim().toLowerCase(),
         full_name: fullName.trim(),
-        expires_at: expiresAt ? new Date(expiresAt).toISOString() : null
+        expires_at: expiresAt ? expiresAt.toISOString() : null
       });
       setFullName("");
       setEmail("");
-      setExpiresAt("");
+      setExpiresAt(null);
       await load();
       showToast(`Staff invitation created. Code: ${invitation.invite_code}`, "success");
     } catch (inviteError) {
@@ -88,6 +88,28 @@ export default function StaffScreen() {
     }
   };
 
+  const pickExpiration = () => {
+    Alert.alert(
+      "Set invitation expiration",
+      "Choose how long this invitation should stay active.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "24 hours",
+          onPress: () => setExpiresAt(new Date(Date.now() + 24 * 60 * 60 * 1000))
+        },
+        {
+          text: "3 days",
+          onPress: () => setExpiresAt(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000))
+        },
+        {
+          text: "7 days",
+          onPress: () => setExpiresAt(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+        }
+      ]
+    );
+  };
+
   return (
     <Screen
       title="Staff management"
@@ -101,7 +123,32 @@ export default function StaffScreen() {
         />
         <Input label="Full name" value={fullName} onChangeText={setFullName} placeholder="Maria Santos" />
         <Input label="Email" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder="staff.member@example.com" />
-        <Input label="Expires at" value={expiresAt} onChangeText={setExpiresAt} placeholder="2026-04-25T17:00" />
+        <View style={{ gap: 8 }}>
+          <Text style={{ fontSize: 13, fontWeight: "800", color: "#60758f", letterSpacing: 0.2 }}>Expiration</Text>
+          <Pressable
+            onPress={pickExpiration}
+            accessibilityRole="button"
+            accessibilityLabel="Select invitation expiration date and time"
+            style={{
+              minHeight: 54,
+              borderWidth: 1,
+              borderColor: "#c9d7e6",
+              borderRadius: 20,
+              backgroundColor: "#f8fbfd",
+              paddingHorizontal: 14,
+              justifyContent: "center"
+            }}
+          >
+            <Text style={{ color: expiresAt ? "#10243e" : "#8ba0b7", fontSize: 15 }}>
+              {expiresAt ? expiresAt.toLocaleString() : "Tap to select date and time"}
+            </Text>
+          </Pressable>
+          {expiresAt ? (
+            <Pressable onPress={() => setExpiresAt(null)} accessibilityRole="button">
+              <Text style={{ color: "#1f5f8b", fontWeight: "700" }}>Clear expiration</Text>
+            </Pressable>
+          ) : null}
+        </View>
         <Button label={saving ? "Creating invitation..." : "Create staff invitation"} onPress={inviteStaff} />
       </Panel>
 

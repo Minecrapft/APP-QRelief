@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
+import { SignOutAction } from "@/components/ui/SignOutAction";
 import { theme } from "@/constants/theme";
 import { fetchAdminDashboard } from "@/features/admin/operations";
 import { useAuth } from "@/providers/AuthProvider";
@@ -23,6 +24,7 @@ export default function AdminHomeScreen() {
     <Screen
       title="Admin dashboard"
       subtitle={`Signed in as ${profile?.full_name ?? "Administrator"}. Monitor approvals, operations, and reports from one place.`}
+      action={<SignOutAction onConfirm={signOut} />}
     >
       <Panel tone="strong">
         <SectionHeader
@@ -94,8 +96,6 @@ export default function AdminHomeScreen() {
           ) : null}
         </View>
       </Panel>
-
-      <Button label="Sign out" onPress={signOut} variant="secondary" />
     </Screen>
   );
 }

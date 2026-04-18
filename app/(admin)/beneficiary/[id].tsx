@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 
 import { Button } from "@/components/ui/Button";
 import { Screen } from "@/components/ui/Screen";
@@ -21,6 +22,8 @@ export default function AdminBeneficiaryDetailScreen() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isApproved = beneficiary?.status === "approved";
+  const isRejected = beneficiary?.status === "rejected";
 
   const loadBeneficiary = async () => {
     if (!beneficiaryId) {
@@ -77,7 +80,9 @@ export default function AdminBeneficiaryDetailScreen() {
       setPriorityFlag(updated.priority_flag);
       setMessage(
         status === "approved"
-          ? "Beneficiary approved. QR token generated server-side."
+          ? updated.qr_token
+            ? "Beneficiary approved. QR token is available for field scanning."
+            : "Approved beneficiary record updated."
           : "Beneficiary rejected and the reason is now visible to them.",
       );
     } catch (reviewError) {
@@ -120,6 +125,28 @@ export default function AdminBeneficiaryDetailScreen() {
           <Text style={{ color: "#92400e" }}>QR token will be generated after approval.</Text>
         )}
       </View>
+
+      {isApproved && beneficiary.qr_token ? (
+        <View style={{ gap: 12, alignItems: "center", padding: 18, borderRadius: 18, backgroundColor: "#ffffff" }}>
+          <Text style={{ alignSelf: "stretch", fontSize: 16, fontWeight: "800", color: "#052e16" }}>
+            Beneficiary QR preview
+          </Text>
+          <View
+            style={{
+              padding: 16,
+              borderRadius: 18,
+              backgroundColor: "#ffffff",
+              borderWidth: 1,
+              borderColor: "#dcfce7"
+            }}
+          >
+            <QRCode value={beneficiary.qr_token} size={200} />
+          </View>
+          <Text style={{ color: "#166534", textAlign: "center" }}>
+            Staff can scan this code during distribution to verify eligibility.
+          </Text>
+        </View>
+      ) : null}
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: "#14532d" }}>Internal notes</Text>
@@ -185,11 +212,23 @@ export default function AdminBeneficiaryDetailScreen() {
 
       <View style={{ gap: 12 }}>
         <Button
-          label={saving ? "Saving..." : "Approve and generate QR"}
+          label={
+            saving
+              ? "Saving..."
+              : isApproved
+                ? "Update approved record"
+                : "Approve and generate QR"
+          }
           onPress={() => handleReview("approved")}
         />
         <Button
-          label={saving ? "Saving..." : "Reject with reason"}
+          label={
+            saving
+              ? "Saving..."
+              : isRejected
+                ? "Update rejection details"
+                : "Reject with reason"
+          }
           onPress={() => handleReview("rejected")}
           variant="secondary"
         />

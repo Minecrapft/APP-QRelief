@@ -1,3 +1,5 @@
+import { useFocusEffect } from "@react-navigation/native";
+import { useCallback, useState } from "react";
 import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
@@ -5,8 +7,30 @@ import { Screen } from "@/components/ui/Screen";
 import { useAuth } from "@/providers/AuthProvider";
 
 export default function PendingApprovalScreen() {
-  const { beneficiaryRecord, signOut } = useAuth();
+  const { beneficiaryRecord, signOut, refreshProfile } = useAuth();
   const isRejected = beneficiaryRecord?.status === "rejected";
+  const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      void (async () => {
+        try {
+          setRefreshing(true);
+          await refreshProfile();
+        } finally {
+          if (isActive) {
+            setRefreshing(false);
+          }
+        }
+      })();
+
+      return () => {
+        isActive = false;
+      };
+    }, [refreshProfile])
+  );
 
   return (
     <Screen
@@ -40,6 +64,10 @@ export default function PendingApprovalScreen() {
         ) : null}
       </View>
 
+      <Button
+        label={refreshing ? "Refreshing status..." : "Refresh approval status"}
+        onPress={refreshProfile}
+      />
       <Button label="Sign out" onPress={signOut} variant="secondary" />
     </Screen>
   );
