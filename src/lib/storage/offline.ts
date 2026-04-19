@@ -38,6 +38,12 @@ export async function initializeOfflineStorage() {
       cached_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS cached_event_rosters (
+      event_id TEXT PRIMARY KEY NOT NULL,
+      payload TEXT NOT NULL,
+      cached_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS cached_recent_distributions (
       distribution_id TEXT PRIMARY KEY NOT NULL,
       payload TEXT NOT NULL,
@@ -87,6 +93,26 @@ export async function getCachedAssignedEvents() {
   const rows = await db.getAllAsync<{ payload: string }>("SELECT payload FROM cached_assigned_events ORDER BY cached_at DESC;");
 
   return rows.map((row) => fromJson<EventRecord>(row.payload)).filter(Boolean) as EventRecord[];
+}
+
+export async function cacheEventRoster(eventId: string, roster: StaffBeneficiaryLookupResult[]) {
+  const db = await getDatabase();
+
+  await db.runAsync(
+    `INSERT OR REPLACE INTO cached_event_rosters (event_id, payload, cached_at)
+     VALUES (?, ?, ?);`,
+    [eventId, toJson(roster), new Date().toISOString()]
+  );
+}
+
+export async function getCachedEventRoster(eventId: string) {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ payload: string }>(
+    "SELECT payload FROM cached_event_rosters WHERE event_id = ? LIMIT 1;",
+    [eventId]
+  );
+
+  return row ? (fromJson<StaffBeneficiaryLookupResult[]>(row.payload) ?? []) : [];
 }
 
 export async function cacheRecentDistributions(records: DistributionRecord[]) {
@@ -143,6 +169,33 @@ export async function getCachedBeneficiaryLookup(eventId: string, lookupValue: s
   );
 
   return row ? fromJson<StaffBeneficiaryLookupResult>(row.payload) : null;
+}
+
+export async function findCachedBeneficiaryLookupInRoster(eventId: string, lookupValue: string) {
+  const normalizedLookup = lookupValue.trim().toLowerCase();
+
+  if (!normalizedLookup) {
+    return null;
+  }
+
+  const roster = await getCachedEventRoster(eventId);
+
+  return (
+    roster.find((entry) => {
+      const beneficiary = entry.beneficiary;
+      const qrToken = beneficiary.qr_token?.toLowerCase() ?? "";
+      const beneficiaryId = beneficiary.id.toLowerCase();
+      const fullName = beneficiary.full_name.toLowerCase();
+      const contactNumber = beneficiary.contact_number.toLowerCase();
+
+      return (
+        qrToken === normalizedLookup ||
+        beneficiaryId === normalizedLookup ||
+        fullName.includes(normalizedLookup) ||
+        contactNumber.includes(normalizedLookup)
+      );
+    }) ?? null
+  );
 }
 
 export async function hasPendingDistributionForBeneficiary(eventId: string, beneficiaryId: string) {

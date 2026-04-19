@@ -4,19 +4,24 @@
     "slug": "qrelief-app",
     "scheme": "qrelief",
     "version": "1.0.0",
+    "icon": "./assets/branding/qrelief-logo.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "splash": {
+      "image": "./assets/branding/qrelief-logo.png",
+      "resizeMode": "contain",
       "backgroundColor": "#f3f6fb"
     },
     "android": {
       "package": "com.qrelief.app",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/branding/qrelief-logo.png",
         "backgroundColor": "#f3f6fb"
       }
     },
     "ios": {
-      "bundleIdentifier": "com.qrelief.app"
+      "bundleIdentifier": "com.qrelief.app",
+      "icon": "./assets/branding/qrelief-logo.png"
     },
     "plugins": [
       "expo-router",

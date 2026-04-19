@@ -2,8 +2,10 @@ import { supabase } from "@/lib/supabase/client";
 import { Json } from "@/lib/supabase/types";
 import {
   cacheAssignedEvents,
+  cacheEventRoster,
   cacheBeneficiaryLookup,
   cacheRecentDistributions,
+  findCachedBeneficiaryLookupInRoster,
   enqueueDistribution,
   getCachedAssignedEvents,
   getCachedBeneficiaryLookup,
@@ -89,6 +91,21 @@ async function submitDistributionToServer(params: {
   return normalizeDistributionRecord(data);
 }
 
+export async function preloadBeneficiaryRosterForEvent(eventId: string) {
+  const { data, error } = await supabase.rpc("preload_beneficiary_roster_for_event", {
+    target_event_id: eventId
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const roster = ((data as Json) ?? []) as unknown as StaffBeneficiaryLookupResult[];
+  await cacheEventRoster(eventId, roster);
+
+  return roster;
+}
+
 export async function fetchAssignedEvents() {
   try {
     const { data, error } = await supabase
@@ -102,6 +119,7 @@ export async function fetchAssignedEvents() {
 
     const events = ((data ?? []).map((entry: any) => entry.event).filter(Boolean) ?? []) as EventRecord[];
     await cacheAssignedEvents(events);
+    await Promise.allSettled(events.map((event) => preloadBeneficiaryRosterForEvent(event.id)));
     return events;
   } catch (error) {
     const cachedEvents = await getCachedAssignedEvents();
@@ -158,6 +176,13 @@ export async function lookupBeneficiaryForEvent(eventId: string, lookupValue: st
 
     if (cachedResult) {
       return cachedResult;
+    }
+
+    const rosterMatch = await findCachedBeneficiaryLookupInRoster(eventId, lookupValue);
+
+    if (rosterMatch) {
+      await cacheBeneficiaryLookup(eventId, lookupValue, rosterMatch);
+      return rosterMatch;
     }
 
     throw error;

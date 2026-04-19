@@ -42,14 +42,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    backgroundColor: "rgba(255,255,255,0.08)"
+    borderColor: theme.colors.cardBorder,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    shadowColor: "#0f2742",
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
   },
   pressed: {
     opacity: 0.88
   },
   label: {
-    color: theme.colors.textOnDark,
+    color: theme.colors.text,
     fontSize: 12,
     fontWeight: "700",
     letterSpacing: 0.6,

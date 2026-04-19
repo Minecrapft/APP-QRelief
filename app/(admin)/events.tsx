@@ -1,8 +1,9 @@
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Linking, Platform, Pressable, Text, View } from "react-native";
+import { Platform, Pressable, Text, View } from "react-native";
 
 import { EmptyState, InlineMessage, LoadingState } from "@/components/ui/AsyncState";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,28 @@ type LocationSuggestion = {
   main_text: string;
   secondary_text: string;
 };
+type Region = {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
+};
+
+let NativeMapModule:
+  | {
+      default: any;
+      Marker: any;
+      PROVIDER_GOOGLE?: string;
+    }
+  | null = null;
+
+if (Constants.executionEnvironment !== "storeClient") {
+  try {
+    NativeMapModule = require("react-native-maps");
+  } catch {
+    NativeMapModule = null;
+  }
+}
 
 function formatDateTime(value: Date | null) {
   if (!value) {
@@ -51,6 +74,10 @@ function formatGeocodedAddress(address: Location.LocationGeocodedAddress | null 
 }
 
 export default function EventsScreen() {
+  const MapView = NativeMapModule?.default;
+  const MapMarker = NativeMapModule?.Marker;
+  const googleProvider = NativeMapModule?.PROVIDER_GOOGLE;
+  const canRenderNativeMap = Boolean(MapView && MapMarker);
   const { showToast } = useToast();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [editing, setEditing] = useState<EventRecord | null>(null);
@@ -65,12 +92,15 @@ export default function EventsScreen() {
   const [resolvingLocation, setResolvingLocation] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [mapRegion, setMapRegion] = useState<Region | null>(null);
+  const [resolvingMapPreview, setResolvingMapPreview] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<DateField | null>(null);
   const [pickerMode, setPickerMode] = useState<"date" | "time">("date");
   const [pickerValue, setPickerValue] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
   const [locationBias, setLocationBias] = useState<{ latitude: number; longitude: number } | null>(null);
   const locationRequestId = useRef(0);
+  const geocodeRequestId = useRef(0);
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +127,7 @@ export default function EventsScreen() {
     setEndsAt(null);
     setStatus("draft");
     setLocationSuggestions([]);
+    setMapRegion(null);
   };
 
   const startEdit = (event: EventRecord) => {
@@ -162,6 +193,57 @@ export default function EventsScreen() {
       clearTimeout(timer);
     };
   }, [location, locationBias]);
+
+  useEffect(() => {
+    const query = location.trim();
+
+    if (!query) {
+      setMapRegion(null);
+      setResolvingMapPreview(false);
+      return;
+    }
+
+    const requestId = ++geocodeRequestId.current;
+    setResolvingMapPreview(true);
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const matches = await Location.geocodeAsync(query);
+
+          if (requestId !== geocodeRequestId.current) {
+            return;
+          }
+
+          const firstMatch = matches[0];
+
+          if (!firstMatch) {
+            setMapRegion(null);
+            return;
+          }
+
+          setMapRegion({
+            latitude: firstMatch.latitude,
+            longitude: firstMatch.longitude,
+            latitudeDelta: 0.012,
+            longitudeDelta: 0.012
+          });
+        } catch {
+          if (requestId === geocodeRequestId.current) {
+            setMapRegion(null);
+          }
+        } finally {
+          if (requestId === geocodeRequestId.current) {
+            setResolvingMapPreview(false);
+          }
+        }
+      })();
+    }, 450);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [location]);
 
   const openDatePicker = (target: DateField) => {
     const seedDate = target === "starts_at" ? startsAt ?? new Date() : endsAt ?? startsAt ?? new Date();
@@ -243,6 +325,12 @@ export default function EventsScreen() {
         latitude: current.coords.latitude,
         longitude: current.coords.longitude
       });
+      setMapRegion({
+        latitude: current.coords.latitude,
+        longitude: current.coords.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008
+      });
       showToast("Current location added to the event form.", "success");
     } catch (locationError) {
       const message =
@@ -251,25 +339,6 @@ export default function EventsScreen() {
       showToast(message, "error");
     } finally {
       setResolvingLocation(false);
-    }
-  };
-
-  const handleOpenGoogleMaps = async () => {
-    if (!location.trim()) {
-      const message = "Enter or resolve a location first before opening Google Maps.";
-      setError(message);
-      showToast(message, "error");
-      return;
-    }
-
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`;
-
-    try {
-      await Linking.openURL(url);
-    } catch (linkError) {
-      const message = linkError instanceof Error ? linkError.message : "Unable to open Google Maps.";
-      setError(message);
-      showToast(message, "error");
     }
   };
 
@@ -356,19 +425,66 @@ export default function EventsScreen() {
       ) : null}
       <View style={{ gap: 10 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.textMuted }}>
-          Validate the venue in Google Maps or pull your current GPS location into the form.
+          Preview the venue on the in-app map or pull your current GPS location into the form.
         </Text>
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Button
-              label={resolvingLocation ? "Resolving location..." : "Use current location"}
-              onPress={handleUseCurrentLocation}
-              variant="secondary"
-            />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button label="Open Google Maps" onPress={handleOpenGoogleMaps} variant="secondary" />
-          </View>
+        <Button
+          label={resolvingLocation ? "Resolving location..." : "Use current location"}
+          onPress={handleUseCurrentLocation}
+          variant="secondary"
+        />
+      </View>
+      <View style={{ gap: 8 }}>
+        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>
+          Native map preview
+        </Text>
+        <View
+          style={{
+            minHeight: 220,
+            borderRadius: theme.radii.lg,
+            overflow: "hidden",
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            backgroundColor: theme.colors.surfaceMuted
+          }}
+        >
+          {mapRegion ? (
+            canRenderNativeMap ? (
+              <MapView
+                style={{ flex: 1 }}
+                provider={Platform.OS === "android" ? googleProvider : undefined}
+                region={mapRegion}
+              >
+                <MapMarker
+                  coordinate={{
+                    latitude: mapRegion.latitude,
+                    longitude: mapRegion.longitude
+                  }}
+                  title={title.trim() || "Relief event"}
+                  description={location.trim()}
+                />
+              </MapView>
+            ) : (
+              <View style={{ flex: 1, justifyContent: "center", padding: 18, gap: 8 }}>
+                <Text style={{ color: theme.colors.text, fontWeight: "800", textAlign: "center" }}>
+                  Native map preview is ready in code but not in this current app binary yet.
+                </Text>
+                <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
+                  Rebuild the app or development client to load the native Google Maps module. The event location is still saved normally.
+                </Text>
+                <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
+                  Coordinates: {mapRegion.latitude.toFixed(5)}, {mapRegion.longitude.toFixed(5)}
+                </Text>
+              </View>
+            )
+          ) : (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 18 }}>
+              <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
+                {resolvingMapPreview
+                  ? "Resolving map preview..."
+                  : "Type a venue or use current location to preview the event on the native map."}
+              </Text>
+            </View>
+          )}
         </View>
       </View>
       <Input label="Description" value={description} onChangeText={setDescription} placeholder="Optional notes" multiline />

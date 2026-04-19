@@ -1,14 +1,14 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import * as Haptics from "expo-haptics";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Switch, Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Panel } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
-import { lookupBeneficiaryForEvent } from "@/features/staff/distribution";
+import { lookupBeneficiaryForEvent, preloadBeneficiaryRosterForEvent } from "@/features/staff/distribution";
 import { useOperations } from "@/providers/OperationsProvider";
 import { useToast } from "@/providers/ToastProvider";
 
@@ -22,8 +22,12 @@ export default function StaffScannerScreen() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
+  const [scanPaused, setScanPaused] = useState(false);
   const { isOnline } = useOperations();
   const { showToast } = useToast();
+  const scanLockRef = useRef(false);
+  const resumeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScannedRef = useRef<{ value: string; at: number } | null>(null);
 
   useEffect(() => {
     if (initialEventId) {
@@ -31,21 +35,50 @@ export default function StaffScannerScreen() {
     }
   }, [initialEventId]);
 
+  useEffect(() => {
+    if (!selectedEventId || !isOnline) {
+      return;
+    }
+
+    void preloadBeneficiaryRosterForEvent(selectedEventId).catch(() => undefined);
+  }, [isOnline, selectedEventId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setScanPaused(false);
+      setError(null);
+      scanLockRef.current = false;
+      lastScannedRef.current = null;
+
+      return () => {
+        scanLockRef.current = true;
+        if (resumeTimeoutRef.current) {
+          clearTimeout(resumeTimeoutRef.current);
+          resumeTimeoutRef.current = null;
+        }
+      };
+    }, [])
+  );
+
   const hasPermission = useMemo(() => permission?.granted ?? false, [permission]);
 
   const handleLookup = async (lookupValue: string) => {
-    if (!selectedEventId || !lookupValue.trim() || isBusy) {
+    const normalizedLookup = lookupValue.trim();
+
+    if (!selectedEventId || !normalizedLookup || isBusy || scanLockRef.current) {
       if (!selectedEventId) {
         setError("Open an assigned event first so the scan knows which operation to verify.");
       }
       return;
     }
 
+    scanLockRef.current = true;
+    setScanPaused(true);
     setIsBusy(true);
     setError(null);
 
     try {
-      const result = await lookupBeneficiaryForEvent(selectedEventId, lookupValue.trim());
+      const result = await lookupBeneficiaryForEvent(selectedEventId, normalizedLookup);
       await Haptics.notificationAsync(
         result.already_claimed ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success,
       );
@@ -58,7 +91,7 @@ export default function StaffScannerScreen() {
         pathname: "/(staff)/verify",
         params: {
           eventId: selectedEventId,
-          lookup: lookupValue.trim(),
+          lookup: normalizedLookup,
           beneficiaryId: result.beneficiary.id
         }
       });
@@ -69,7 +102,30 @@ export default function StaffScannerScreen() {
       showToast(message, "error");
     } finally {
       setIsBusy(false);
+      if (scanLockRef.current) {
+        resumeTimeoutRef.current = setTimeout(() => {
+          scanLockRef.current = false;
+          setScanPaused(false);
+          resumeTimeoutRef.current = null;
+        }, 1200);
+      }
     }
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    const now = Date.now();
+    const lastScanned = lastScannedRef.current;
+
+    if (scanPaused || scanLockRef.current || isBusy) {
+      return;
+    }
+
+    if (lastScanned && lastScanned.value === data && now - lastScanned.at < 2000) {
+      return;
+    }
+
+    lastScannedRef.current = { value: data, at: now };
+    void handleLookup(data);
   };
 
   return (
@@ -80,7 +136,7 @@ export default function StaffScannerScreen() {
       {!isOnline ? (
         <Panel tone="warning">
           <Text style={{ color: "#9a5b00", fontWeight: "700" }}>
-            Offline mode is active. Cached beneficiary lookups can still work, and confirmed distributions will be queued for sync.
+            Offline mode is active. QR scans work only for beneficiaries whose roster was preloaded while this event was online. Confirmed distributions will be queued for sync.
           </Text>
         </Panel>
       ) : null}
@@ -108,9 +164,14 @@ export default function StaffScannerScreen() {
               facing="back"
               enableTorch={torchEnabled}
               barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-              onBarcodeScanned={({ data }) => void handleLookup(data)}
+              onBarcodeScanned={scanPaused || isBusy ? undefined : handleBarcodeScanned}
             />
           </View>
+          <Text style={{ color: "#166534", fontSize: 13 }}>
+            {scanPaused || isBusy
+              ? "Scan locked while the current beneficiary is being opened."
+              : "Point the camera at one QR code and hold steady until verification opens."}
+          </Text>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ color: "#14532d", fontWeight: "700" }}>Torch</Text>
             <Switch value={torchEnabled} onValueChange={setTorchEnabled} />

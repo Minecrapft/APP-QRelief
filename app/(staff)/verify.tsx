@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/AsyncState";
 import { Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
 import {
@@ -77,8 +78,16 @@ export default function StaffVerifyScreen() {
       .filter((item) => item.quantity > 0);
   }, [result, selectedItems]);
 
+  const hasAllocations = (result?.allocation_items.length ?? 0) > 0;
+
   const confirmDistribution = async () => {
     if (!eventId || !result) {
+      return;
+    }
+
+    if (!hasAllocations) {
+      const message = "This event has no allocated relief items yet. Ask an admin to configure event allocations first.";
+      setError(message);
       return;
     }
 
@@ -201,40 +210,47 @@ export default function StaffVerifyScreen() {
       </Panel>
 
       <View style={{ gap: 12 }}>
-        {result.allocation_items.map((item) => (
-          <Panel key={item.id}>
-            <Text style={{ fontWeight: "800", color: theme.colors.text }}>
-              {item.inventory_item?.name ?? item.inventory_item_id}
-            </Text>
-            <Text style={{ color: theme.colors.textMuted }}>
-              Event allocation: {item.allocated_quantity} {item.inventory_item?.unit ?? "unit"}
-            </Text>
-            <Text style={{ color: theme.colors.textMuted }}>
-              Suggested per beneficiary: {item.per_beneficiary_quantity}
-            </Text>
-            <TextInput
-              value={String(selectedItems[item.inventory_item_id] ?? 0)}
-              onChangeText={(value) =>
-                setSelectedItems((current) => ({
-                  ...current,
-                  [item.inventory_item_id]: Number(value) || 0
-                }))
-              }
-              keyboardType="number-pad"
-              placeholder="0"
-              placeholderTextColor="#8ba0b7"
-              style={{
-                minHeight: 48,
-                borderWidth: 1,
-                borderColor: theme.colors.inputBorder,
-                borderRadius: 16,
-                paddingHorizontal: 14,
-                color: theme.colors.text,
-                backgroundColor: theme.colors.inputBg
-              }}
-            />
-          </Panel>
-        ))}
+        {hasAllocations ? (
+          result.allocation_items.map((item) => (
+            <Panel key={item.id}>
+              <Text style={{ fontWeight: "800", color: theme.colors.text }}>
+                {item.inventory_item?.name ?? item.inventory_item_id}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Event allocation: {item.allocated_quantity} {item.inventory_item?.unit ?? "unit"}
+              </Text>
+              <Text style={{ color: theme.colors.textMuted }}>
+                Suggested per beneficiary: {item.per_beneficiary_quantity}
+              </Text>
+              <TextInput
+                value={String(selectedItems[item.inventory_item_id] ?? 0)}
+                onChangeText={(value) =>
+                  setSelectedItems((current) => ({
+                    ...current,
+                    [item.inventory_item_id]: Number(value) || 0
+                  }))
+                }
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor="#8ba0b7"
+                style={{
+                  minHeight: 48,
+                  borderWidth: 1,
+                  borderColor: theme.colors.inputBorder,
+                  borderRadius: 16,
+                  paddingHorizontal: 14,
+                  color: theme.colors.text,
+                  backgroundColor: theme.colors.inputBg
+                }}
+              />
+            </Panel>
+          ))
+        ) : (
+          <EmptyState
+            title="No relief items allocated"
+            message="This event does not have any item allocations yet. Ask an admin to open the event and assign inventory with a per-beneficiary quantity before confirming distribution."
+          />
+        )}
       </View>
 
       <View style={{ gap: 8 }}>
@@ -265,8 +281,16 @@ export default function StaffVerifyScreen() {
       ) : null}
 
       <Button
-        label={saving ? "Saving distribution..." : isOnline ? "Confirm distribution" : "Queue distribution offline"}
-        onPress={confirmDistribution}
+        label={
+          !hasAllocations
+            ? "Await admin allocation setup"
+            : saving
+              ? "Saving distribution..."
+              : isOnline
+                ? "Confirm distribution"
+                : "Queue distribution offline"
+        }
+        onPress={hasAllocations ? confirmDistribution : () => undefined}
         variant={result.already_claimed ? "secondary" : "primary"}
       />
       <Pressable

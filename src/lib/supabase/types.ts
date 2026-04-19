@@ -407,6 +407,12 @@ export interface Database {
         };
         Returns: Json;
       };
+      preload_beneficiary_roster_for_event: {
+        Args: {
+          target_event_id: string;
+        };
+        Returns: Json;
+      };
       review_beneficiary: {
         Args: {
           beneficiary_id: string;

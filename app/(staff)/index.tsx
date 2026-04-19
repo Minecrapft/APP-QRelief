@@ -7,7 +7,11 @@ import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
 import { SignOutAction } from "@/components/ui/SignOutAction";
 import { theme } from "@/constants/theme";
-import { fetchAssignedEvents, fetchRecentDistributions } from "@/features/staff/distribution";
+import {
+  fetchAssignedEvents,
+  fetchRecentDistributions,
+  preloadBeneficiaryRosterForEvent
+} from "@/features/staff/distribution";
 import { useAuth } from "@/providers/AuthProvider";
 import { useOperations } from "@/providers/OperationsProvider";
 import { DistributionRecord, EventRecord } from "@/types/domain";
@@ -17,9 +21,21 @@ export default function StaffHomeScreen() {
   const { pendingQueueCount, syncStatus, syncPendingQueue } = useOperations();
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [recentDistributions, setRecentDistributions] = useState<DistributionRecord[]>([]);
+  const [preloadingRosters, setPreloadingRosters] = useState(false);
 
   useEffect(() => {
-    void fetchAssignedEvents().then(setEvents).catch(() => setEvents([]));
+    void fetchAssignedEvents()
+      .then(async (nextEvents) => {
+        setEvents(nextEvents);
+        if (nextEvents.length === 0) {
+          return;
+        }
+
+        setPreloadingRosters(true);
+        await Promise.allSettled(nextEvents.map((event) => preloadBeneficiaryRosterForEvent(event.id)));
+      })
+      .catch(() => setEvents([]))
+      .finally(() => setPreloadingRosters(false));
     void fetchRecentDistributions().then(setRecentDistributions).catch(() => setRecentDistributions([]));
   }, []);
 
@@ -64,6 +80,16 @@ export default function StaffHomeScreen() {
             label={syncStatus === "syncing" ? "Syncing..." : "Sync queued distributions"}
             onPress={syncPendingQueue}
             variant="secondary"
+          />
+        </Panel>
+      ) : null}
+
+      {preloadingRosters ? (
+        <Panel tone="default">
+          <SectionHeader
+            eyebrow="Offline readiness"
+            title="Preparing scan roster cache"
+            subtitle="Assigned event rosters are being cached now so first-time scans can still resolve if the connection drops."
           />
         </Panel>
       ) : null}
