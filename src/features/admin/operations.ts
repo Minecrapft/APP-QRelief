@@ -5,12 +5,31 @@ import {
   DistributionRecord,
   EventItemRecord,
   EventRecord,
+  EventTurnoutPrediction,
+  EventTurnoutPredictionFactor,
+  EventWeatherForecastSummary,
   InventoryItemRecord,
   InventoryMovementRecord,
   StaffAssignmentRecord,
   StaffInvitationRecord,
-  StaffRecord
+  StaffRecord,
+  WeatherEnrichedEventTurnoutPrediction
 } from "@/types/domain";
+
+const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000;
+const weatherPredictionCache = new Map<string, { expiresAt: number; value: WeatherEnrichedEventTurnoutPrediction }>();
+
+function getWeatherCacheKey(event: EventRecord) {
+  return `${event.id}::${event.location.trim().toLowerCase()}::${event.starts_at}`;
+}
+
+function getEventDateKey(startsAt: string) {
+  return new Date(startsAt).toISOString().slice(0, 10);
+}
+
+function clampPrediction(value: number, pool: number) {
+  return Math.max(0, Math.min(pool, Math.round(value)));
+}
 
 export async function fetchEvents() {
   const { data, error } = await supabase.from("events").select("*").order("starts_at", { ascending: false });
@@ -19,10 +38,30 @@ export async function fetchEvents() {
 }
 
 export async function saveEvent(payload: Partial<EventRecord> & Pick<EventRecord, "title" | "location" | "starts_at">) {
+  let eventLatitude = payload.event_latitude ?? null;
+  let eventLongitude = payload.event_longitude ?? null;
+  let locationConfidence = payload.location_confidence ?? null;
+
+  // Auto-geocode the location
+  try {
+    const geocoded = await geocodeEventLocation(payload.location);
+    if (geocoded) {
+      eventLatitude = geocoded.latitude;
+      eventLongitude = geocoded.longitude;
+      locationConfidence = calculateLocationConfidence(geocoded);
+    }
+  } catch {
+    // Gracefully handle geocoding failures - proceed without coordinates
+    console.warn("Failed to geocode event location, proceeding without coordinates");
+  }
+
   const record = {
     title: payload.title,
     description: payload.description ?? null,
     location: payload.location,
+    event_latitude: eventLatitude,
+    event_longitude: eventLongitude,
+    location_confidence: locationConfidence,
     starts_at: payload.starts_at,
     ends_at: payload.ends_at ?? null,
     status: payload.status ?? "draft"
@@ -69,6 +108,207 @@ export async function fetchEventDetail(id: string) {
     inventoryItems: (inventoryResult.data ?? []) as InventoryItemRecord[],
     availableStaff: (staffResult.data ?? []) as StaffRecord[]
   };
+}
+
+export async function fetchEventTurnoutPrediction(id: string) {
+  const { data, error } = await supabase.rpc("predict_event_turnout", {
+    target_event_id: id
+  });
+
+  if (error) throw error;
+
+  return data as unknown as EventTurnoutPrediction;
+}
+
+async function geocodeEventLocation(location: string) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1&language=en&format=json`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error("Unable to geocode the event location for weather enrichment.");
+  }
+
+  const payload = (await response.json()) as {
+    results?: Array<{
+      name: string;
+      latitude: number;
+      longitude: number;
+      country?: string;
+      admin1?: string;
+    }>;
+  };
+
+  return payload.results?.[0] ?? null;
+}
+
+function calculateLocationConfidence(geocodingResult: {
+  name?: string;
+  latitude?: number;
+  longitude?: number;
+  admin1?: string;
+  country?: string;
+} | null): number {
+  if (!geocodingResult) return 0;
+
+  // Confidence is higher if we got admin1 (state/province level) info, lower if just country
+  if (geocodingResult.admin1 && geocodingResult.country) return 0.8;
+  if (geocodingResult.admin1) return 0.7;
+  if (geocodingResult.country) return 0.5;
+  return 0.3;
+}
+
+function calculateDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const earthRadiusKm = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.asin(Math.sqrt(a));
+  return earthRadiusKm * c;
+}
+
+function toRad(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+async function fetchWeatherForecastForEvent(event: EventRecord) {
+  const geocoded = await geocodeEventLocation(event.location);
+
+  if (!geocoded) {
+    return null;
+  }
+
+  const eventDate = getEventDateKey(event.starts_at);
+  const weatherUrl =
+    `https://api.open-meteo.com/v1/forecast?latitude=${geocoded.latitude}&longitude=${geocoded.longitude}` +
+    `&daily=weather_code,temperature_2m_max,precipitation_probability_max,precipitation_sum,wind_speed_10m_max` +
+    `&timezone=auto&forecast_days=16`;
+
+  const response = await fetch(weatherUrl);
+
+  if (!response.ok) {
+    throw new Error("Unable to load weather forecast for turnout prediction.");
+  }
+
+  const payload = (await response.json()) as {
+    daily?: {
+      time?: string[];
+      weather_code?: number[];
+      temperature_2m_max?: number[];
+      precipitation_probability_max?: number[];
+      precipitation_sum?: number[];
+      wind_speed_10m_max?: number[];
+    };
+  };
+
+  const daily = payload.daily;
+  const targetIndex = daily?.time?.findIndex((value) => value === eventDate) ?? -1;
+
+  if (!daily || targetIndex < 0) {
+    return null;
+  }
+
+  return {
+    location_name: [geocoded.name, geocoded.admin1, geocoded.country].filter(Boolean).join(", "),
+    forecast_date: eventDate,
+    temperature_max: daily.temperature_2m_max?.[targetIndex] ?? null,
+    precipitation_probability_max: daily.precipitation_probability_max?.[targetIndex] ?? null,
+    precipitation_sum: daily.precipitation_sum?.[targetIndex] ?? null,
+    wind_speed_10m_max: daily.wind_speed_10m_max?.[targetIndex] ?? null,
+    weather_code: daily.weather_code?.[targetIndex] ?? null
+  } satisfies EventWeatherForecastSummary;
+}
+
+function applyWeatherAdjustment(
+  prediction: EventTurnoutPrediction,
+  weather: EventWeatherForecastSummary | null
+): WeatherEnrichedEventTurnoutPrediction {
+  if (!weather) {
+    return {
+      ...prediction,
+      base_predicted_turnout: prediction.predicted_turnout,
+      weather_adjustment_delta: 0,
+      weather_adjustment_reason: null,
+      weather_adjusted_turnout: prediction.predicted_turnout,
+      weather_forecast: null
+    };
+  }
+
+  let delta = 0;
+  const reasons: string[] = [];
+  const base = prediction.predicted_turnout;
+
+  if ((weather.precipitation_probability_max ?? 0) >= 80 || (weather.precipitation_sum ?? 0) >= 20) {
+    delta -= Math.max(4, Math.round(base * 0.18));
+    reasons.push("heavy rain risk");
+  } else if ((weather.precipitation_probability_max ?? 0) >= 55 || (weather.precipitation_sum ?? 0) >= 8) {
+    delta -= Math.max(2, Math.round(base * 0.1));
+    reasons.push("moderate rain chance");
+  }
+
+  if ((weather.wind_speed_10m_max ?? 0) >= 35) {
+    delta -= Math.max(2, Math.round(base * 0.08));
+    reasons.push("strong winds");
+  }
+
+  if ((weather.temperature_max ?? 0) >= 35) {
+    delta -= Math.max(2, Math.round(base * 0.06));
+    reasons.push("high heat");
+  } else if (weather.temperature_max !== null && weather.temperature_max >= 24 && weather.temperature_max <= 31) {
+    delta += Math.max(1, Math.round(base * 0.03));
+    reasons.push("comfortable weather");
+  }
+
+  const adjusted = clampPrediction(base + delta, prediction.approved_beneficiary_pool);
+  const weatherFactor: EventTurnoutPredictionFactor = {
+    label: "Weather adjustment",
+    value: adjusted - base,
+    detail:
+      reasons.length > 0
+        ? `Weather adjusted the turnout forecast by ${adjusted - base >= 0 ? "+" : ""}${adjusted - base} due to ${reasons.join(", ")}.`
+        : "Weather data was available, but no strong turnout adjustment was triggered."
+  };
+
+  return {
+    ...prediction,
+    weather_forecast: weather,
+    base_predicted_turnout: base,
+    weather_adjustment_delta: adjusted - base,
+    weather_adjustment_reason: reasons.length > 0 ? reasons.join(", ") : null,
+    weather_adjusted_turnout: adjusted,
+    predicted_turnout: adjusted,
+    explanation_factors: [...prediction.explanation_factors, weatherFactor]
+  };
+}
+
+export async function fetchWeatherEnrichedEventTurnoutPrediction(event: EventRecord) {
+  const cacheKey = getWeatherCacheKey(event);
+  const cached = weatherPredictionCache.get(cacheKey);
+
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
+
+  const basePrediction = await fetchEventTurnoutPrediction(event.id);
+
+  let enrichedPrediction: WeatherEnrichedEventTurnoutPrediction;
+
+  try {
+    const weather = await fetchWeatherForecastForEvent(event);
+    enrichedPrediction = applyWeatherAdjustment(basePrediction, weather);
+  } catch {
+    enrichedPrediction = applyWeatherAdjustment(basePrediction, null);
+  }
+
+  weatherPredictionCache.set(cacheKey, {
+    expiresAt: Date.now() + WEATHER_CACHE_TTL_MS,
+    value: enrichedPrediction
+  });
+
+  return enrichedPrediction;
 }
 
 export async function upsertEventAllocation(payload: {

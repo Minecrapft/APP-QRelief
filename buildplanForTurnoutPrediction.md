@@ -64,15 +64,15 @@ When an admin creates or reviews an event, QRelief should be able to show:
 
 ### Scope
 
-- [ ] Audit existing tables needed for prediction inputs
-- [ ] Identify turnout ground-truth logic from `distributions`
-- [ ] Define derived metrics:
+- [x] Audit existing tables needed for prediction inputs
+- [x] Identify turnout ground-truth logic from `distributions`
+- [x] Define derived metrics:
   - attendance rate
   - no-show rate
   - event-type baseline
   - day/time attendance pattern
-- [ ] Add missing fields if required for prediction snapshots
-- [ ] Document prediction inputs and output contract
+- [x] No missing fields required for V1 prediction snapshots
+- [x] Document prediction inputs and output contract
 
 ### Deliverable
 
@@ -86,18 +86,18 @@ A stable data contract for turnout forecasting.
 
 ### Scope
 
-- [ ] Build server-side prediction formula or SQL/RPC
-- [ ] Use:
+- [x] Build server-side prediction formula or SQL/RPC
+- [x] Use:
   - approved beneficiary pool
   - historical attendance
   - event timing
   - active allocation context
-- [ ] Return:
+- [x] Return:
   - predicted_turnout
   - confidence
   - explanation_factors
   - recommended_buffer
-- [ ] Handle low-data scenarios gracefully
+- [x] Handle low-data scenarios gracefully
 
 ### Deliverable
 
@@ -111,11 +111,11 @@ A working V1 turnout prediction engine based on QRelief data only.
 
 ### Scope
 
-- [ ] Integrate Open-Meteo forecast lookup
-- [ ] Map weather conditions into turnout adjustment factors
-- [ ] Add rain/heat/severe-weather impact scoring
-- [ ] Cache weather responses for prediction windows
-- [ ] Add error fallback if weather service is unavailable
+- [x] Integrate Open-Meteo forecast lookup
+- [x] Map weather conditions into turnout adjustment factors
+- [x] Add rain/heat/severe-weather impact scoring
+- [x] Cache weather responses for prediction windows
+- [x] Add error fallback if weather service is unavailable
 
 ### Deliverable
 
@@ -129,11 +129,11 @@ Prediction engine includes weather-aware turnout adjustment.
 
 ### Scope
 
-- [ ] Normalize event location inputs for prediction use
-- [ ] Add geocoding strategy for event coordinates
-- [ ] Add proximity or accessibility heuristic
-- [ ] Use location confidence when exact beneficiary location data is limited
-- [ ] Define safe fallback when only coarse location text exists
+- [x] Normalize event location inputs for prediction use
+- [x] Add geocoding strategy for event coordinates
+- [x] Add proximity or accessibility heuristic
+- [x] Use location confidence when exact beneficiary location data is limited
+- [x] Define safe fallback when only coarse location text exists
 
 ### Deliverable
 
@@ -147,15 +147,15 @@ Prediction engine includes location-sensitive turnout weighting.
 
 ### Scope
 
-- [ ] Add turnout prediction card to admin event flow
-- [ ] Show:
+- [x] Add turnout prediction card to admin event flow
+- [x] Show:
   - predicted turnout
   - confidence badge
   - recommended prep quantity
   - explanation bullets
-- [ ] Add empty states for low-data/no-forecast conditions
-- [ ] Match the Signal Tactical UI language
-- [ ] Ensure mobile readability and scanability
+- [x] Add empty states for low-data/no-forecast conditions
+- [x] Match the Signal Tactical UI language
+- [x] Ensure mobile readability and scanability
 
 ### Deliverable
 
@@ -169,11 +169,11 @@ Admins can view and understand turnout prediction directly in the event workflow
 
 ### Scope
 
-- [ ] Add refresh action for updated prediction
+- [x] Add refresh action for updated prediction
 - [ ] Cache recent forecasts
 - [ ] Avoid repeated external API calls
-- [ ] Add loading/error states
-- [ ] Add timestamps like `forecast generated at`
+- [x] Add loading/error states
+- [x] Add timestamps like `forecast generated at`
 
 ### Deliverable
 
@@ -239,4 +239,3 @@ The turnout prediction feature is complete when:
 4. The UI explains the main factors behind the estimate.
 5. The system behaves safely when data is missing.
 6. Forecasts can be compared against actual turnout later.
-

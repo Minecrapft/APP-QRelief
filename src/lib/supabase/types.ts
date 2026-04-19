@@ -6,6 +6,8 @@ export interface Database {
       beneficiaries: {
         Row: {
           address: string;
+          beneficiary_latitude: number | null;
+          beneficiary_longitude: number | null;
           contact_number: string;
           created_at: string;
           full_name: string;
@@ -13,6 +15,7 @@ export interface Database {
           household_size: number;
           id: string;
           internal_notes: string | null;
+          location_confidence: number | null;
           priority_flag: boolean;
           qr_token: string | null;
           rejection_reason: string | null;
@@ -21,12 +24,15 @@ export interface Database {
         };
         Insert: {
           address: string;
+          beneficiary_latitude?: number | null;
+          beneficiary_longitude?: number | null;
           contact_number: string;
           full_name: string;
           government_id: string;
           household_size: number;
           id: string;
           internal_notes?: string | null;
+          location_confidence?: number | null;
           priority_flag?: boolean;
           qr_token?: string | null;
           rejection_reason?: string | null;
@@ -34,12 +40,15 @@ export interface Database {
         };
         Update: {
           address?: string;
+          beneficiary_latitude?: number | null;
+          beneficiary_longitude?: number | null;
           contact_number?: string;
           full_name?: string;
           government_id?: string;
           household_size?: number;
           id?: string;
           internal_notes?: string | null;
+          location_confidence?: number | null;
           priority_flag?: boolean;
           qr_token?: string | null;
           rejection_reason?: string | null;
@@ -101,8 +110,11 @@ export interface Database {
           created_by: string | null;
           description: string | null;
           ends_at: string | null;
+          event_latitude: number | null;
+          event_longitude: number | null;
           id: string;
           location: string;
+          location_confidence: number | null;
           starts_at: string;
           status: "draft" | "active" | "cancelled" | "archived";
           title: string;
@@ -112,8 +124,11 @@ export interface Database {
           created_by?: string | null;
           description?: string | null;
           ends_at?: string | null;
+          event_latitude?: number | null;
+          event_longitude?: number | null;
           id?: string;
           location: string;
+          location_confidence?: number | null;
           starts_at: string;
           status?: "draft" | "active" | "cancelled" | "archived";
           title: string;
@@ -122,8 +137,11 @@ export interface Database {
           created_by?: string | null;
           description?: string | null;
           ends_at?: string | null;
+          event_latitude?: number | null;
+          event_longitude?: number | null;
           id?: string;
           location?: string;
+          location_confidence?: number | null;
           starts_at?: string;
           status?: "draft" | "active" | "cancelled" | "archived";
           title?: string;
@@ -404,6 +422,12 @@ export interface Database {
         Args: {
           target_event_id: string;
           lookup_value: string;
+        };
+        Returns: Json;
+      };
+      predict_event_turnout: {
+        Args: {
+          target_event_id: string;
         };
         Returns: Json;
       };
