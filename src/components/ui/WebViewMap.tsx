@@ -16,13 +16,15 @@ type WebViewMapProps = {
   zoom?: number;
   markers?: MapMarker[];
   style?: any;
+  onMarkerPress?: (id: string) => void;
 };
 
 export const WebViewMap: React.FC<WebViewMapProps> = ({
   center,
   zoom = 15,
   markers = [],
-  style
+  style,
+  onMarkerPress
 }) => {
   const html = `
     <!DOCTYPE html>
@@ -62,7 +64,6 @@ export const WebViewMap: React.FC<WebViewMapProps> = ({
             doubleClickZoom: true
           }).setView([${center.latitude}, ${center.longitude}], ${zoom});
 
-          // Move the zoom control to the bottom-right for easier thumb access
           L.control.zoom({
             position: 'bottomright'
           }).addTo(map);
@@ -82,12 +83,16 @@ export const WebViewMap: React.FC<WebViewMapProps> = ({
             });
 
             const marker = L.marker([m.latitude, m.longitude], { icon }).addTo(map);
+            
+            marker.on('click', () => {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markerPress', id: m.id }));
+            });
+
             if (m.title) {
               marker.bindPopup(\`<b>\${m.title}</b>\${m.description ? '<br/>' + m.description : ''}\`);
             }
           });
 
-          // Update view when center changes (passed via initial render)
           map.setView([${center.latitude}, ${center.longitude}], ${zoom});
         </script>
       </body>
@@ -108,6 +113,16 @@ export const WebViewMap: React.FC<WebViewMapProps> = ({
         domStorageEnabled={true}
         javaScriptEnabled={true}
         nestedScrollEnabled={true}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data);
+            if (data.type === 'markerPress' && onMarkerPress) {
+              onMarkerPress(data.id);
+            }
+          } catch (e) {
+            console.warn("Map message error:", e);
+          }
+        }}
       />
     </View>
   );

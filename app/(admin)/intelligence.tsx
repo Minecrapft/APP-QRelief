@@ -27,14 +27,16 @@ type AnalysisResult = {
 export default function IntelligenceScreen() {
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [isDemo, setIsDemo] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [selectedPin, setSelectedPin] = useState<PriorityPin | null>(null);
 
-  const runAnalysis = async () => {
+  const runAnalysis = async (demoModeOverride?: boolean) => {
     setLoading(true);
+    const activeDemo = demoModeOverride ?? isDemo;
     try {
       const { data, error } = await supabase.functions.invoke("analyze-disaster-priority", {
-        body: {}
+        body: { demoMode: activeDemo }
       });
       
       if (error) throw error;
@@ -46,7 +48,7 @@ export default function IntelligenceScreen() {
       const hub = data.priorities.find((p: PriorityPin) => p.cityName === data.criticalHub);
       if (hub) setSelectedPin(hub);
 
-      showToast("Disaster intelligence synchronized.", "success");
+      showToast(activeDemo ? "Typhoon Odette simulation loaded." : "Live intelligence synchronized.", "success");
     } catch (err) {
       console.error(err);
       const msg = err instanceof Error ? err.message : "Failed to fetch disaster intelligence.";
@@ -77,16 +79,49 @@ export default function IntelligenceScreen() {
   return (
     <Screen 
       title="Disaster Intelligence" 
-      subtitle="AI-driven relief prioritization based on real-time weather and hazard data."
+      subtitle={isDemo ? "SIMULATION MODE: Analyzing Typhoon Odette landfall impacts." : "AI-driven relief prioritization based on real-time weather and hazard data."}
     >
       <View style={{ gap: 20 }}>
+        {/* Scenario Selector */}
+        <View style={{ gap: 10 }}>
+          <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 1 }}>
+            OPERATIONAL SCENARIO
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            <Pressable 
+              onPress={() => {
+                setIsDemo(false);
+                runAnalysis(false);
+              }}
+              style={[styles.scenarioPill, !isDemo && styles.scenarioPillActive]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="radio" size={14} color={!isDemo ? "#fff" : theme.colors.text} />
+                <Text style={[styles.scenarioText, !isDemo && styles.scenarioTextActive]}>Live Monitoring</Text>
+              </View>
+            </Pressable>
+            <Pressable 
+              onPress={() => {
+                setIsDemo(true);
+                runAnalysis(true);
+              }}
+              style={[styles.scenarioPill, isDemo && styles.scenarioPillActive]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="flask" size={14} color={isDemo ? "#fff" : theme.colors.text} />
+                <Text style={[styles.scenarioText, isDemo && styles.scenarioTextActive]}>Demo: Typhoon Odette</Text>
+              </View>
+            </Pressable>
+          </ScrollView>
+        </View>
+
         {/* Map Header */}
         <View style={styles.mapContainer}>
           {loading ? (
             <View style={styles.mapOverlay}>
               <ActivityIndicator size="large" color={theme.colors.primary} />
               <Text style={{ marginTop: 12, color: theme.colors.textMuted, fontWeight: "600" }}>
-                Analyzing weather patterns...
+                {isDemo ? "Simulating Odette landfall..." : "Analyzing weather patterns..."}
               </Text>
             </View>
           ) : (
@@ -94,6 +129,10 @@ export default function IntelligenceScreen() {
               style={{ flex: 1 }} 
               center={selectedPin ? { latitude: selectedPin.coords.lat, longitude: selectedPin.coords.lng } : { latitude: 12.8797, longitude: 121.7740 }}
               markers={mapMarkers}
+              onMarkerPress={(id) => {
+                const pin = result?.priorities.find(p => p.cityName === id);
+                if (pin) setSelectedPin(pin);
+              }}
             />
           )}
         </View>
@@ -103,7 +142,7 @@ export default function IntelligenceScreen() {
           <View style={[styles.card, { borderColor: getPriorityColor(selectedPin.score) }]}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>STRATEGIC HUD</Text>
+                <Text style={styles.label}>STRATEGIC HUD {isDemo ? "(DEMO)" : ""}</Text>
                 <Text style={styles.title}>{selectedPin.cityName}</Text>
               </View>
               <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(selectedPin.score) }]}>
@@ -120,7 +159,7 @@ export default function IntelligenceScreen() {
                   const { data: newEvent, error } = await supabase
                     .from("events")
                     .insert({
-                      title: `Relief: ${selectedPin.cityName} (AI Priority ${selectedPin.score})`,
+                      title: `${isDemo ? "[DEMO] " : ""}Relief: ${selectedPin.cityName} (AI Priority ${selectedPin.score})`,
                       location: selectedPin.cityName,
                       description: `${selectedPin.reason}\n\nAI BUILD PLAN:\n${result.buildPlan}`,
                       status: "draft",
@@ -131,7 +170,7 @@ export default function IntelligenceScreen() {
 
                   if (error) throw error;
                   
-                  showToast("Draft event created from AI plan.", "success");
+                  showToast(isDemo ? "Demonstration event created." : "Draft event created from AI plan.", "success");
                   router.push("/(admin)/events");
                 } catch (err) {
                   console.error(err);
@@ -251,6 +290,26 @@ const styles = StyleSheet.create({
     color: "#475569",
     lineHeight: 22,
     marginTop: 12
+  },
+  scenarioPill: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#e2e8f0"
+  },
+  scenarioPillActive: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary
+  },
+  scenarioText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: theme.colors.text
+  },
+  scenarioTextActive: {
+    color: "#fff"
   },
   buildPlanContainer: {
     padding: 24,

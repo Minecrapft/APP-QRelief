@@ -18,7 +18,9 @@ const MAJOR_PH_CITIES: PHCity[] = [
   { name: "Naga City", lat: 13.6218, lng: 123.1948, population_est: 210000 },
   { name: "Cagayan de Oro", lat: 8.4542, lng: 124.6319, population_est: 730000 },
   { name: "Baguio", lat: 16.4023, lng: 120.5960, population_est: 370000 },
-  { name: "Iloilo City", lat: 10.7202, lng: 122.5621, population_est: 450000 }
+  { name: "Iloilo City", lat: 10.7202, lng: 122.5621, population_est: 450000 },
+  { name: "Tagbilaran", lat: 9.6412, lng: 123.8559, population_est: 100000 },
+  { name: "Maasin City", lat: 10.1333, lng: 124.8417, population_est: 850000 }
 ];
 
 function json(data: unknown, status = 200) {
@@ -35,31 +37,45 @@ Deno.serve(async (req) => {
   if (!groqApiKey) return json({ error: "Configuration Error", message: "Missing GROQ API Key in environment." }, 200);
 
   try {
-    console.log("Fetching GDACS data...");
-    const gdacsUrl = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=TC;FL";
-    const gdacsRes = await fetch(gdacsUrl);
-    
-    if (!gdacsRes.ok) {
-      throw new Error(`GDACS API returned ${gdacsRes.status}`);
+    const { demoMode } = await req.json().catch(() => ({}));
+    let phEvents = [];
+
+    if (demoMode) {
+      console.log("Running in DEMO MODE (Typhoon Odette Scenario)...");
+      phEvents = [
+        {
+          properties: {
+            eventtype: "TC",
+            eventname: "Super Typhoon ODETTE (Rai) Simulation",
+            severitydata: { severity: "Extreme", severitytext: "Category 5" },
+            description: "Massive landfall in Siargao, Surigao del Norte. Extreme wind damage and storm surge across Visayas and Northern Mindanao. Total power outage in Bohol and Southern Leyte."
+          }
+        }
+      ];
+    } else {
+      console.log("Fetching GDACS data...");
+      const gdacsUrl = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH?eventtype=TC;FL";
+      const gdacsRes = await fetch(gdacsUrl);
+      
+      if (!gdacsRes.ok) {
+        throw new Error(`GDACS API returned ${gdacsRes.status}`);
+      }
+
+      const gdacsData = await gdacsRes.json();
+      phEvents = gdacsData.features?.filter((f: any) => {
+        const country = f.properties?.country || "";
+        const description = f.properties?.description || "";
+        return country.includes("Philippines") || 
+               description.includes("Philippines") || 
+               description.includes("Luzon") || 
+               description.includes("Visayas") || 
+               description.includes("Mindanao");
+      }) || [];
     }
 
-    const gdacsData = await gdacsRes.json();
-    console.log(`Received ${gdacsData?.features?.length || 0} features from GDACS.`);
-    
-    const phEvents = gdacsData.features?.filter((f: any) => {
-      const country = f.properties?.country || "";
-      const description = f.properties?.description || "";
-      return country.includes("Philippines") || 
-             description.includes("Philippines") || 
-             description.includes("Luzon") || 
-             description.includes("Visayas") || 
-             description.includes("Mindanao");
-    }) || [];
-
-    console.log(`Found ${phEvents.length} PH-relevant events.`);
+    console.log(`Analyzing ${phEvents.length} events for PH impact.`);
 
     if (phEvents.length === 0) {
-      console.log("No active PH hazards found. Returning empty priority list.");
       return json({
         disasters: [],
         priorities: MAJOR_PH_CITIES.map(c => ({
@@ -69,13 +85,14 @@ Deno.serve(async (req) => {
           coords: { lat: c.lat, lng: c.lng }
         })),
         criticalHub: "None",
-        buildPlan: "No active large-scale hazards detected by GDACS for the Philippines at this time. Normal operational monitoring remains in effect."
+        buildPlan: "Operational monitoring remains in effect."
       });
     }
 
     const prompt = `
       You are the QRelief Disaster Intelligence AI.
-      Analyze the following active disaster events and prioritize relief efforts for major Philippine cities.
+      ${demoMode ? "SCENARIO: This is a simulation of Super Typhoon ODETTE for training and demonstration." : ""}
+      Analyze the following disaster events and prioritize relief efforts for major Philippine cities.
       
       DISASTER EVENTS:
       ${JSON.stringify(phEvents.map((e: any) => ({
