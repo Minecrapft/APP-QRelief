@@ -51,18 +51,11 @@ export default function AdminHomeScreen() {
 
       <Panel>
         <SectionHeader
-          eyebrow="Quick Actions"
-          title="Keep the operation moving"
-          subtitle="Jump into the core admin tasks that unblock field teams."
+          eyebrow="Secondary Actions"
+          title="Operational reports"
+          subtitle="Generate and view detailed reports on distributions and inventory."
         />
-        <Button
-          label="Review beneficiary applications"
-          onPress={() => router.push("/(admin)/beneficiaries")}
-        />
-        <Button label="Manage events" onPress={() => router.push("/(admin)/events")} />
-        <Button label="Manage inventory" onPress={() => router.push("/(admin)/inventory")} />
-        <Button label="Manage staff" onPress={() => router.push("/(admin)/staff")} />
-        <Button label="Open reports" onPress={() => router.push("/(admin)/reports")} />
+        <Button label="Open reports" onPress={() => router.push("/(admin)/reports")} variant="secondary" />
       </Panel>
 
       <Panel>

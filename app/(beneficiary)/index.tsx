@@ -48,13 +48,6 @@ export default function BeneficiaryHomeScreen() {
         </View>
       </View>
 
-      <View style={{ gap: 12 }}>
-        <Button label="Open my QR code" onPress={() => router.push("/(beneficiary)/qr")} />
-        <Button label="Browse events" onPress={() => router.push("/(beneficiary)/events")} variant="secondary" />
-        <Button label="View claim history" onPress={() => router.push("/(beneficiary)/history")} variant="secondary" />
-        <Button label="Edit profile" onPress={() => router.push("/(beneficiary)/profile")} variant="secondary" />
-      </View>
-
       <Panel>
         <SectionHeader
           eyebrow="Event Access"

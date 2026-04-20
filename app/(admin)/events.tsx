@@ -2,27 +2,24 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import Constants from "expo-constants";
 import * as Location from "expo-location";
 import { router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useRef, useState } from "react";
-import { Platform, Pressable, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { EmptyState, InlineMessage, LoadingState } from "@/components/ui/AsyncState";
+import { AddressInput } from "@/components/ui/AddressInput";
+import { WebViewMap } from "@/components/ui/WebViewMap";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { theme } from "@/constants/theme";
 import { Screen } from "@/components/ui/Screen";
 import { fetchEvents, saveEvent } from "@/features/admin/operations";
-import { supabase } from "@/lib/supabase/client";
 import { useToast } from "@/providers/ToastProvider";
 import { EventRecord, EventStatus } from "@/types/domain";
 
 const EVENT_STATUSES: EventStatus[] = ["draft", "active", "cancelled", "archived"];
 type DateField = "starts_at" | "ends_at";
-type LocationSuggestion = {
-  place_id: string;
-  text: string;
-  main_text: string;
-  secondary_text: string;
-};
 type Region = {
   latitude: number;
   longitude: number;
@@ -34,14 +31,16 @@ let NativeMapModule:
   | {
       default: any;
       Marker: any;
+      UrlTile: any;
       PROVIDER_GOOGLE?: string;
     }
   | null = null;
 
-if (Constants.executionEnvironment !== "storeClient") {
+if (Constants.executionEnvironment !== "storeClient" && Platform.OS !== "web") {
   try {
     NativeMapModule = require("react-native-maps");
-  } catch {
+  } catch (e) {
+    console.warn("Native Map Module not found:", e);
     NativeMapModule = null;
   }
 }
@@ -74,11 +73,13 @@ function formatGeocodedAddress(address: Location.LocationGeocodedAddress | null 
 }
 
 export default function EventsScreen() {
+  const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
   const MapView = NativeMapModule?.default;
   const MapMarker = NativeMapModule?.Marker;
-  const googleProvider = NativeMapModule?.PROVIDER_GOOGLE;
-  const canRenderNativeMap = Boolean(MapView && MapMarker);
-  const { showToast } = useToast();
+  const UrlTile = NativeMapModule?.UrlTile;
+  const canRenderNativeMap = Boolean(MapView && MapMarker && UrlTile);
+  
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [editing, setEditing] = useState<EventRecord | null>(null);
   const [title, setTitle] = useState("");
@@ -90,8 +91,6 @@ export default function EventsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [resolvingLocation, setResolvingLocation] = useState(false);
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [mapRegion, setMapRegion] = useState<Region | null>(null);
   const [resolvingMapPreview, setResolvingMapPreview] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<DateField | null>(null);
@@ -99,8 +98,8 @@ export default function EventsScreen() {
   const [pickerValue, setPickerValue] = useState(new Date());
   const [error, setError] = useState<string | null>(null);
   const [locationBias, setLocationBias] = useState<{ latitude: number; longitude: number } | null>(null);
-  const locationRequestId = useRef(0);
   const geocodeRequestId = useRef(0);
+  const [viewMode, setViewMode] = useState<"list" | "form">("list");
 
   const load = async () => {
     setLoading(true);
@@ -126,8 +125,8 @@ export default function EventsScreen() {
     setStartsAt(null);
     setEndsAt(null);
     setStatus("draft");
-    setLocationSuggestions([]);
     setMapRegion(null);
+    setViewMode("list");
   };
 
   const startEdit = (event: EventRecord) => {
@@ -139,60 +138,8 @@ export default function EventsScreen() {
     setEndsAt(event.ends_at ? new Date(event.ends_at) : null);
     setStatus(event.status);
     setError(null);
-    setLocationSuggestions([]);
+    setViewMode("form");
   };
-
-  useEffect(() => {
-    const query = location.trim();
-
-    if (query.length < 3) {
-      setLocationSuggestions([]);
-      setSuggestionsLoading(false);
-      return;
-    }
-
-    const requestId = ++locationRequestId.current;
-    setSuggestionsLoading(true);
-
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const { data, error: invokeError } = await supabase.functions.invoke("google-places-autocomplete", {
-            body: {
-              input: query,
-              latitude: locationBias?.latitude ?? null,
-              longitude: locationBias?.longitude ?? null
-            }
-          });
-
-          if (invokeError) {
-            throw invokeError;
-          }
-
-          if (requestId !== locationRequestId.current) {
-            return;
-          }
-
-          setLocationSuggestions(Array.isArray(data?.suggestions) ? (data.suggestions as LocationSuggestion[]) : []);
-        } catch (suggestionError) {
-          if (requestId !== locationRequestId.current) {
-            return;
-          }
-
-          setLocationSuggestions([]);
-          console.warn("Unable to load Google Places suggestions", suggestionError);
-        } finally {
-          if (requestId === locationRequestId.current) {
-            setSuggestionsLoading(false);
-          }
-        }
-      })();
-    }, 350);
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [location, locationBias]);
 
   useEffect(() => {
     const query = location.trim();
@@ -371,9 +318,10 @@ export default function EventsScreen() {
         ends_at: endsAt ? endsAt.toISOString() : null,
         status
       });
-      resetForm();
+      
       showToast(editing ? "Event updated." : "Event created.", "success");
       await load();
+      setViewMode("list");
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Unable to save event.";
       setError(message);
@@ -383,220 +331,255 @@ export default function EventsScreen() {
     }
   };
 
-  return (
-    <Screen title="Events" subtitle="Create, update, and manage relief events before assigning items and staff.">
-      <Input label="Event title" value={title} onChangeText={setTitle} placeholder="Flood response - Zone 4" />
-      <Input label="Location" value={location} onChangeText={setLocation} placeholder="Covered court, Barangay 12" />
-      {suggestionsLoading ? (
-        <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>Looking up Google Maps locations...</Text>
-      ) : null}
-      {locationSuggestions.length > 0 ? (
-        <View
-          style={{
-            borderRadius: theme.radii.md,
-            borderWidth: 1,
-            borderColor: theme.colors.cardBorder,
-            backgroundColor: theme.colors.surface,
-            overflow: "hidden"
-          }}
-        >
-          {locationSuggestions.map((suggestion, index) => (
-            <Pressable
-              key={`${suggestion.place_id}-${index}`}
-              onPress={() => {
-                setLocation(suggestion.text);
-                setLocationSuggestions([]);
-              }}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                borderTopWidth: index === 0 ? 0 : 1,
-                borderTopColor: theme.colors.cardBorder,
-                gap: 4
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontWeight: "700" }}>{suggestion.main_text}</Text>
-              {suggestion.secondary_text ? (
-                <Text style={{ color: theme.colors.textMuted, fontSize: 13 }}>{suggestion.secondary_text}</Text>
-              ) : null}
-            </Pressable>
-          ))}
-        </View>
-      ) : null}
-      <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: theme.colors.textMuted }}>
-          Preview the venue on the in-app map or pull your current GPS location into the form.
+  const renderForm = () => (
+    <View style={{ gap: 20 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+        <Text style={{ fontSize: 20, fontWeight: "900", color: "#0f172a" }}>
+          {editing ? "Update operation" : "New relief operation"}
         </Text>
+        <Pressable onPress={() => setViewMode("list")} style={{ padding: 8 }}>
+          <Ionicons name="close" size={24} color="#64748b" />
+        </Pressable>
+      </View>
+      
+      <Input label="Event title" value={title} onChangeText={setTitle} placeholder="Flood response - Zone 4" />
+      <AddressInput
+        label="Location"
+        value={location}
+        onChangeText={setLocation}
+        placeholder="Covered court, Barangay 12"
+        locationBias={locationBias}
+      />
+      
+      <View style={{ gap: 10 }}>
         <Button
           label={resolvingLocation ? "Resolving location..." : "Use current location"}
           onPress={handleUseCurrentLocation}
           variant="secondary"
         />
       </View>
+
       <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>
-          Native map preview
-        </Text>
-        <View
-          style={{
-            minHeight: 220,
-            borderRadius: theme.radii.lg,
-            overflow: "hidden",
-            borderWidth: 1,
-            borderColor: theme.colors.cardBorder,
-            backgroundColor: theme.colors.surfaceMuted
-          }}
-        >
+        <Text style={styles.fieldLabel}>Location preview</Text>
+        <View style={styles.mapContainer}>
           {mapRegion ? (
             canRenderNativeMap ? (
-              <MapView
-                style={{ flex: 1 }}
-                provider={Platform.OS === "android" ? googleProvider : undefined}
-                region={mapRegion}
-              >
-                <MapMarker
-                  coordinate={{
-                    latitude: mapRegion.latitude,
-                    longitude: mapRegion.longitude
-                  }}
-                  title={title.trim() || "Relief event"}
-                  description={location.trim()}
-                />
+              <MapView style={{ flex: 1 }} mapType="none" region={mapRegion}>
+                <UrlTile urlTemplate="https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" maximumZ={19} flipY={false} />
+                <MapMarker coordinate={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }} title={title.trim() || "Relief event"} description={location.trim()} />
               </MapView>
             ) : (
-              <View style={{ flex: 1, justifyContent: "center", padding: 18, gap: 8 }}>
-                <Text style={{ color: theme.colors.text, fontWeight: "800", textAlign: "center" }}>
-                  Native map preview is ready in code but not in this current app binary yet.
-                </Text>
-                <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
-                  Rebuild the app or development client to load the native Google Maps module. The event location is still saved normally.
-                </Text>
-                <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
-                  Coordinates: {mapRegion.latitude.toFixed(5)}, {mapRegion.longitude.toFixed(5)}
-                </Text>
-              </View>
+              <WebViewMap style={{ flex: 1 }} center={{ latitude: mapRegion.latitude, longitude: mapRegion.longitude }} markers={[{ id: "preview", latitude: mapRegion.latitude, longitude: mapRegion.longitude, title: title || "Relief event", color: "#166534" }]} />
             )
           ) : (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 18 }}>
               <Text style={{ color: theme.colors.textMuted, textAlign: "center" }}>
-                {resolvingMapPreview
-                  ? "Resolving map preview..."
-                  : "Type a venue or use current location to preview the event on the native map."}
+                {resolvingMapPreview ? "Resolving map preview..." : "Search for a venue to see the map preview."}
               </Text>
             </View>
           )}
         </View>
       </View>
+
       <Input label="Description" value={description} onChangeText={setDescription} placeholder="Optional notes" multiline />
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>
-          Starts at
-        </Text>
-        <Pressable
-          onPress={() => openDatePicker("starts_at")}
-          style={{
-            minHeight: 56,
-            borderRadius: theme.radii.md,
-            borderWidth: 1,
-            borderColor: theme.colors.inputBorder,
-            backgroundColor: theme.colors.inputBg,
-            paddingHorizontal: 16,
-            justifyContent: "center"
-          }}
-        >
-          <Text style={{ color: startsAt ? theme.colors.text : "#8ba0b7", fontSize: 15 }}>{formatDateTime(startsAt)}</Text>
-        </Pressable>
-      </View>
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 13, fontWeight: "800", color: theme.colors.textMuted, letterSpacing: 0.2 }}>
-          Ends at
-        </Text>
-        <Pressable
-          onPress={() => openDatePicker("ends_at")}
-          style={{
-            minHeight: 56,
-            borderRadius: theme.radii.md,
-            borderWidth: 1,
-            borderColor: theme.colors.inputBorder,
-            backgroundColor: theme.colors.inputBg,
-            paddingHorizontal: 16,
-            justifyContent: "center"
-          }}
-        >
-          <Text style={{ color: endsAt ? theme.colors.text : "#8ba0b7", fontSize: 15 }}>{formatDateTime(endsAt)}</Text>
-        </Pressable>
+      
+      <View style={{ flexDirection: "row", gap: 12 }}>
+        <View style={{ flex: 1, gap: 8 }}>
+          <Text style={styles.fieldLabel}>Starts at</Text>
+          <Pressable onPress={() => openDatePicker("starts_at")} style={styles.datePickerButton}>
+            <Text style={{ color: startsAt ? theme.colors.text : "#8ba0b7", fontSize: 14 }}>{formatDateTime(startsAt)}</Text>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1, gap: 8 }}>
+          <Text style={styles.fieldLabel}>Ends at</Text>
+          <Pressable onPress={() => openDatePicker("ends_at")} style={styles.datePickerButton}>
+            <Text style={{ color: endsAt ? theme.colors.text : "#8ba0b7", fontSize: 14 }}>{formatDateTime(endsAt)}</Text>
+          </Pressable>
+        </View>
       </View>
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        {EVENT_STATUSES.map((option) => (
-          <Pressable
-            key={option}
-            onPress={() => setStatus(option)}
-            accessibilityRole="button"
-            accessibilityLabel={`Set event status to ${option}`}
-            accessibilityState={{ selected: status === option }}
-            style={{
-              paddingHorizontal: 14,
-              minHeight: 40,
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: status === option ? "#166534" : "#f0fdf4",
-              borderWidth: 1,
-              borderColor: status === option ? "#166534" : "#bbf7d0"
-            }}
-          >
-            <Text style={{ color: status === option ? "#f0fdf4" : "#14532d", fontWeight: "700", textTransform: "capitalize" }}>
-              {option}
-            </Text>
-          </Pressable>
-        ))}
+      <View style={{ gap: 8 }}>
+        <Text style={styles.fieldLabel}>Operation status</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          {([
+            { id: "draft", icon: "pencil", label: "Draft", color: "#64748b", bg: "#f1f5f9" },
+            { id: "active", icon: "play-circle", label: "Active", color: "#166534", bg: "#f0fdf4" },
+            { id: "cancelled", icon: "close-circle", label: "Cancelled", color: "#9f1239", bg: "#fff1f2" },
+            { id: "archived", icon: "archive", label: "Archived", color: "#1e40af", bg: "#eff6ff" }
+          ] as const).map((opt) => {
+            const isSelected = status === opt.id;
+            return (
+              <Pressable
+                key={opt.id}
+                onPress={() => setStatus(opt.id)}
+                style={[styles.statusOption, { borderColor: isSelected ? opt.color : "transparent", backgroundColor: opt.bg, opacity: isSelected ? 1 : 0.7 }]}
+              >
+                <Ionicons name={opt.icon as any} size={18} color={opt.color} />
+                <Text style={{ color: opt.color, fontWeight: "700", fontSize: 13 }}>{opt.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
       {error ? <InlineMessage tone="error" message={error} /> : null}
+      <Button label={saving ? "Saving..." : editing ? "Update operation" : "Create operation"} onPress={submit} />
+    </View>
+  );
 
-      <View style={{ gap: 12 }}>
-        <Button label={saving ? "Saving..." : editing ? "Update event" : "Create event"} onPress={submit} />
-        {editing ? <Button label="Cancel edit" onPress={resetForm} variant="secondary" /> : null}
-      </View>
-
-      {loading ? <LoadingState label="Loading events..." /> : null}
+  const renderList = () => (
+    <View style={{ gap: 16 }}>
+      {loading ? <LoadingState label="Synchronizing operations..." /> : null}
       {!loading && events.length === 0 ? (
-        <EmptyState
-          title="No events created yet"
-          message="Create your first event to start assigning staff and inventory."
-        />
+        <EmptyState title="No active operations" message="Your operations dashboard is currently empty. Tap the (+) button below to start a new relief event." />
       ) : null}
 
-      <View style={{ gap: 12 }}>
+      <View style={{ gap: 14 }}>
         {events.map((event) => (
           <Pressable
             key={event.id}
             onPress={() => router.push(`/(admin)/event/${event.id}`)}
-            accessibilityRole="button"
-            accessibilityLabel={`Open event ${event.title}`}
-            style={{ gap: 8, padding: 18, borderRadius: 18, borderWidth: 1, borderColor: "#dcfce7", backgroundColor: "#fff" }}
+            style={styles.eventCard}
           >
-            <Text style={{ fontSize: 16, fontWeight: "700", color: "#052e16" }}>{event.title}</Text>
-            <Text style={{ color: "#166534" }}>{event.location}</Text>
-            <Text style={{ color: "#166534" }}>{new Date(event.starts_at).toLocaleString()}</Text>
-            <Text style={{ color: "#14532d", textTransform: "capitalize" }}>Status: {event.status}</Text>
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <Button label="Edit" onPress={() => startEdit(event)} variant="secondary" accessibilityLabel={`Edit ${event.title}`} />
-              <Button label="Manage allocations" onPress={() => router.push(`/(admin)/event/${event.id}`)} accessibilityLabel={`Manage allocations for ${event.title}`} />
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={{ fontSize: 18, fontWeight: "800", color: "#0f172a" }}>{event.title}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="location" size={14} color="#64748b" />
+                  <Text style={{ color: "#64748b", fontSize: 13, flexShrink: 1 }}>{event.location}</Text>
+                </View>
+              </View>
+              
+              {/* Status Badge */}
+              {(() => {
+                const config = {
+                  draft: { icon: "pencil", color: "#64748b", bg: "#f1f5f9" },
+                  active: { icon: "play-circle", color: "#166534", bg: "#f0fdf4" },
+                  cancelled: { icon: "close-circle", color: "#9f1239", bg: "#fff1f2" },
+                  archived: { icon: "archive", color: "#1e40af", bg: "#eff6ff" }
+                }[event.status] || { icon: "help-circle", color: "#64748b", bg: "#f1f5f9" };
+                
+                return (
+                  <View style={[styles.badge, { backgroundColor: config.bg }]}>
+                    <Ionicons name={config.icon as any} size={12} color={config.color} />
+                    <Text style={{ color: config.color, fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>{event.status}</Text>
+                  </View>
+                );
+              })()}
+            </View>
+
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="calendar-outline" size={14} color="#64748b" />
+              <Text style={{ color: "#64748b", fontSize: 13, fontWeight: "500" }}>
+                {new Date(event.starts_at).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 6 }}>
+              <Button label="Edit" onPress={() => startEdit(event)} variant="secondary" style={{ flex: 1, minHeight: 44 }} />
+              <Button label="Manage Operation" onPress={() => router.push(`/(admin)/event/${event.id}`)} style={{ flex: 2, minHeight: 44 }} />
             </View>
           </Pressable>
         ))}
       </View>
+    </View>
+  );
 
-      {pickerTarget ? (
-        <DateTimePicker
-          value={pickerValue}
-          mode={pickerMode}
-          is24Hour={false}
-          onChange={handlePickerChange}
-        />
-      ) : null}
-    </Screen>
+  return (
+    <>
+      <Screen 
+        title="Operations" 
+        subtitle={viewMode === "list" ? "Monitor and manage live relief efforts across all mapped zones." : "Configure parameters and location for a new relief event."}
+      >
+        {viewMode === "list" ? renderList() : renderForm()}
+
+        {pickerTarget ? (
+          <DateTimePicker value={pickerValue} mode={pickerMode} is24Hour={false} onChange={handlePickerChange} />
+        ) : null}
+      </Screen>
+
+      {viewMode === "list" && (
+        <Pressable 
+          onPress={() => {
+            resetForm();
+            setViewMode("form");
+          }}
+          style={[styles.fab, { bottom: insets.bottom + 15, left: 20 }]}
+        >
+          <Ionicons name="add" size={32} color="#fff" />
+        </Pressable>
+      )}
+    </>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: theme.colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 8,
+    zIndex: 10
+  },
+  eventCard: {
+    padding: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
+    gap: 12
+  },
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8
+  },
+  mapContainer: {
+    minHeight: 220,
+    borderRadius: 18,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#f8fafc"
+  },
+  datePickerButton: {
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    justifyContent: "center"
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#64748b",
+    letterSpacing: 0.2
+  },
+  statusOption: {
+    width: "48%",
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  }
+});

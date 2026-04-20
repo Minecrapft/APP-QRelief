@@ -4,10 +4,12 @@ import { Pressable, Text, TextInput, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/AsyncState";
+import { Input } from "@/components/ui/Input";
 import { Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
 import {
   distributeToBeneficiary,
+  fetchAssignedEvents,
   isLikelyOfflineError,
   lookupBeneficiaryForEvent,
   queueDistributionForOffline
@@ -15,59 +17,74 @@ import {
 import { theme } from "@/constants/theme";
 import { useOperations } from "@/providers/OperationsProvider";
 import { useToast } from "@/providers/ToastProvider";
-import { DistributionItemRecord, StaffBeneficiaryLookupResult } from "@/types/domain";
+import { DistributionItemRecord, EventRecord, StaffBeneficiaryLookupResult } from "@/types/domain";
 
 export default function StaffVerifyScreen() {
-  const params = useLocalSearchParams<{ eventId: string; lookup?: string }>();
-  const eventId = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
-  const lookup = Array.isArray(params.lookup) ? params.lookup[0] : params.lookup;
+  const params = useLocalSearchParams<{ eventId?: string; lookup?: string }>();
+  const initialEventId = Array.isArray(params.eventId) ? params.eventId[0] : params.eventId;
+  const initialLookup = Array.isArray(params.lookup) ? params.lookup[0] : params.lookup;
 
+  // Search State (for when accessed as a Tab)
+  const [searchEventId, setSearchEventId] = useState(initialEventId ?? "");
+  const [searchLookup, setSearchLookup] = useState(initialLookup ?? "");
+  const [assignedEvents, setAssignedEvents] = useState<EventRecord[]>([]);
+
+  // Verification State
   const [result, setResult] = useState<StaffBeneficiaryLookupResult | null>(null);
   const [notes, setNotes] = useState("");
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  
   const { isOnline, refreshPendingQueue } = useOperations();
   const { showToast } = useToast();
 
+  // Load assignments if needed
   useEffect(() => {
-    const load = async () => {
-      if (!eventId || !lookup) {
-        setLoading(false);
-        setError("Missing event or lookup context.");
-        return;
-      }
+    void fetchAssignedEvents().then(setAssignedEvents).catch(() => setAssignedEvents([]));
+  }, []);
 
-      setLoading(true);
-      setError(null);
-
-      try {
-        const nextResult = await lookupBeneficiaryForEvent(eventId, lookup);
-        setResult(nextResult);
-        setSelectedItems(
-          Object.fromEntries(
-            nextResult.allocation_items.map((item) => [
-              item.inventory_item_id,
-              item.per_beneficiary_quantity
-            ]),
-          ),
-        );
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Unable to verify beneficiary.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void load();
-  }, [eventId, lookup]);
-
-  const distributionItems = useMemo<DistributionItemRecord[]>(() => {
-    if (!result) {
-      return [];
+  const runVerify = async (eId: string, lkp: string) => {
+    if (!eId || !lkp) {
+      setError("Please select an event and enter a lookup value.");
+      return;
     }
 
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const nextResult = await lookupBeneficiaryForEvent(eId, lkp);
+      setResult(nextResult);
+      setNotes("");
+      setSelectedItems(
+        Object.fromEntries(
+          nextResult.allocation_items.map((item) => [
+            item.inventory_item_id,
+            item.per_beneficiary_quantity
+          ]),
+        ),
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unable to verify beneficiary.";
+      setError(msg);
+      showToast(msg, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial load from params
+  useEffect(() => {
+    if (initialEventId && initialLookup) {
+      void runVerify(initialEventId, initialLookup);
+    }
+  }, [initialEventId, initialLookup]);
+
+  const distributionItems = useMemo<DistributionItemRecord[]>(() => {
+    if (!result) return [];
     return result.allocation_items
       .map((item) => ({
         inventory_item_id: item.inventory_item_id,
@@ -81,27 +98,17 @@ export default function StaffVerifyScreen() {
   const hasAllocations = (result?.allocation_items.length ?? 0) > 0;
 
   const confirmDistribution = async () => {
-    if (!eventId || !result) {
-      return;
-    }
-
+    if (!searchEventId || !result) return;
     if (!hasAllocations) {
-      const message = "This event has no allocated relief items yet. Ask an admin to configure event allocations first.";
-      setError(message);
+      setError("Event has no allocations. Contact admin.");
       return;
     }
-
     if (distributionItems.length === 0) {
-      const message = "Select at least one item quantity before confirming the distribution.";
-      setError(message);
-      showToast(message, "error");
+      showToast("Select item quantities.", "error");
       return;
     }
-
     if (result.already_claimed) {
-      const message = "This beneficiary has already claimed for the selected event.";
-      setError(message);
-      showToast(message, "error");
+      showToast("Already claimed.", "error");
       return;
     }
 
@@ -109,196 +116,162 @@ export default function StaffVerifyScreen() {
     setError(null);
 
     try {
-      if (!isOnline) {
-        await queueDistributionForOffline({
-          eventId,
-          beneficiaryId: result.beneficiary.id,
-          notes,
-          items: distributionItems,
-          lookupValue: lookup ?? null
-        });
-        await refreshPendingQueue();
-        showToast("Distribution saved offline and queued for sync.", "success");
-        router.replace("/(staff)");
-        return;
-      }
-
-      await distributeToBeneficiary({
-        eventId,
+      const payload = {
+        eventId: searchEventId,
         beneficiaryId: result.beneficiary.id,
         notes,
-        items: distributionItems
-      });
-      showToast("Distribution confirmed and synced.", "success");
-      router.replace("/(staff)");
+        items: distributionItems,
+        lookupValue: searchLookup
+      };
+
+      if (!isOnline) {
+        await queueDistributionForOffline(payload);
+        await refreshPendingQueue();
+        showToast("Distribution queued offline.", "success");
+      } else {
+        await distributeToBeneficiary(payload);
+        showToast("Distribution confirmed.", "success");
+      }
+      
+      setResult(null);
+      setSearchLookup("");
+      router.replace("/(staff)/history");
     } catch (saveError) {
       if (isLikelyOfflineError(saveError)) {
-        try {
-          await queueDistributionForOffline({
-            eventId,
-            beneficiaryId: result.beneficiary.id,
-            notes,
-            items: distributionItems,
-            lookupValue: lookup ?? null
-          });
-          await refreshPendingQueue();
-          showToast("Connection dropped. Distribution was queued for sync.", "success");
-          router.replace("/(staff)");
-          return;
-        } catch (queueError) {
-          const queueMessage = queueError instanceof Error ? queueError.message : "Unable to queue this distribution.";
-          setError(queueMessage);
-          showToast(queueMessage, "error");
-          return;
-        }
+        await queueDistributionForOffline({ eventId: searchEventId, beneficiaryId: result.beneficiary.id, notes, items: distributionItems, lookupValue: searchLookup });
+        await refreshPendingQueue();
+        showToast("Queued offline.", "success");
+        setResult(null);
+        router.replace("/(staff)/history");
+      } else {
+        setError(saveError instanceof Error ? saveError.message : "Failed to save.");
       }
-
-      const message = saveError instanceof Error ? saveError.message : "Unable to log this distribution.";
-      setError(message);
-      showToast(message, "error");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <Screen title="Verify beneficiary" subtitle="Checking approval, assignment, and duplicate claims...">
-        <Panel>
-          <Text style={{ color: theme.colors.textMuted }}>Loading verification data...</Text>
-        </Panel>
-      </Screen>
-    );
-  }
-
-  if (!result) {
-    return (
-      <Screen title="Verify beneficiary" subtitle="No beneficiary record was found for this scan.">
-        {error ? (
-          <Panel tone="warning">
-            <Text style={{ color: theme.colors.dangerText, fontWeight: "700" }}>{error}</Text>
-          </Panel>
-        ) : null}
-      </Screen>
-    );
-  }
-
   return (
     <Screen
-      title={result.beneficiary.full_name}
-      subtitle="Review event eligibility, prevent duplicates, and confirm the quantities being distributed."
+      title="Manual Verification"
+      subtitle={result ? `Reviewing ${result.beneficiary.full_name}` : "Search and verify beneficiaries when QR scanning is not possible."}
     >
-      {!isOnline ? (
-        <Panel tone="warning">
-          <Text style={{ color: theme.colors.warningText, fontWeight: "700" }}>
-            Offline mode is active. Confirmed distributions will be stored locally and synced when the connection returns.
-          </Text>
-        </Panel>
-      ) : null}
+      {!result ? (
+        <View style={{ gap: 20 }}>
+          <Panel>
+            <SectionHeader eyebrow="Field Search" title="Beneficiary Lookup" subtitle="Select your assigned event and enter the beneficiary name or ID." />
+            <View style={{ gap: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: "#64748b" }}>ASSIGNED EVENT</Text>
+              <View style={{ gap: 8 }}>
+                {assignedEvents.map(ev => (
+                  <Pressable 
+                    key={ev.id} 
+                    onPress={() => setSearchEventId(ev.id)}
+                    style={[styles.eventOption, searchEventId === ev.id && styles.eventOptionActive]}
+                  >
+                    <Text style={[styles.eventOptionText, searchEventId === ev.id && styles.eventOptionTextActive]}>{ev.title}</Text>
+                  </Pressable>
+                ))}
+                {assignedEvents.length === 0 && <Text style={{ color: theme.colors.textMuted }}>No active assignments found.</Text>}
+              </View>
+              
+              <Input label="Lookup Value" value={searchLookup} onChangeText={setSearchLookup} placeholder="Name, ID, or Contact #" />
+              
+              {error && <Text style={{ color: "#ef4444", fontSize: 12 }}>{error}</Text>}
+              <Button label={loading ? "Searching..." : "Start Verification"} onPress={() => runVerify(searchEventId, searchLookup)} />
+            </View>
+          </Panel>
+        </View>
+      ) : (
+        <View style={{ gap: 20 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+             <Text style={{ fontSize: 20, fontWeight: "900", color: "#0f172a" }}>Confirm Distribution</Text>
+             <Pressable onPress={() => setResult(null)} style={{ padding: 8 }}>
+               <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Cancel</Text>
+             </Pressable>
+          </View>
 
-      <Panel tone={result.already_claimed ? "warning" : "success"}>
-        <SectionHeader eyebrow="Eligibility" title="Verification summary" />
-        <Text style={{ color: theme.colors.text, fontWeight: "800" }}>
-          Approval status: {result.beneficiary.status}
-        </Text>
-        <Text style={{ color: theme.colors.textMuted }}>
-          Event: {result.eligible_event?.title ?? "No assigned event match"}
-        </Text>
-        <Text style={{ color: result.already_claimed ? theme.colors.dangerText : theme.colors.successText, fontWeight: "700" }}>
-          {result.already_claimed ? "Already claimed for this event" : "Not yet claimed for this event"}
-        </Text>
-      </Panel>
+          <Panel tone={result.already_claimed ? "warning" : "success"}>
+            <SectionHeader eyebrow="Security Check" title={result.beneficiary.full_name} subtitle={result.already_claimed ? "ALREADY CLAIMED" : "ELIGIBLE FOR CLAIM"} />
+            <Text style={{ color: theme.colors.textMuted, marginTop: -8 }}>Status: {result.beneficiary.status}</Text>
+          </Panel>
 
-      <View style={{ gap: 12 }}>
-        {hasAllocations ? (
-          result.allocation_items.map((item) => (
-            <Panel key={item.id}>
-              <Text style={{ fontWeight: "800", color: theme.colors.text }}>
-                {item.inventory_item?.name ?? item.inventory_item_id}
-              </Text>
-              <Text style={{ color: theme.colors.textMuted }}>
-                Event allocation: {item.allocated_quantity} {item.inventory_item?.unit ?? "unit"}
-              </Text>
-              <Text style={{ color: theme.colors.textMuted }}>
-                Suggested per beneficiary: {item.per_beneficiary_quantity}
-              </Text>
-              <TextInput
-                value={String(selectedItems[item.inventory_item_id] ?? 0)}
-                onChangeText={(value) =>
-                  setSelectedItems((current) => ({
-                    ...current,
-                    [item.inventory_item_id]: Number(value) || 0
-                  }))
-                }
-                keyboardType="number-pad"
-                placeholder="0"
-                placeholderTextColor="#8ba0b7"
-                style={{
-                  minHeight: 48,
-                  borderWidth: 1,
-                  borderColor: theme.colors.inputBorder,
-                  borderRadius: 16,
-                  paddingHorizontal: 14,
-                  color: theme.colors.text,
-                  backgroundColor: theme.colors.inputBg
-                }}
-              />
-            </Panel>
-          ))
-        ) : (
-          <EmptyState
-            title="No relief items allocated"
-            message="This event does not have any item allocations yet. Ask an admin to open the event and assign inventory with a per-beneficiary quantity before confirming distribution."
-          />
-        )}
-      </View>
+          <View style={{ gap: 12 }}>
+            <Text style={styles.fieldLabel}>ALLOCATED ITEMS</Text>
+            {hasAllocations ? (
+              result.allocation_items.map((item) => (
+                <View key={item.id} style={styles.itemRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "800", color: "#0f172a" }}>{item.inventory_item?.name}</Text>
+                    <Text style={{ fontSize: 12, color: "#64748b" }}>Max Suggestion: {item.per_beneficiary_quantity} {item.inventory_item?.unit}</Text>
+                  </View>
+                  <TextInput
+                    value={String(selectedItems[item.inventory_item_id] ?? 0)}
+                    onChangeText={(val) => setSelectedItems(prev => ({ ...prev, [item.inventory_item_id]: Number(val) || 0 }))}
+                    keyboardType="number-pad"
+                    style={styles.quantityInput}
+                  />
+                </View>
+              ))
+            ) : (
+              <EmptyState title="No allocations" message="This event has no inventory items assigned for distribution." />
+            )}
+          </View>
 
-      <View style={{ gap: 8 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: theme.colors.text }}>Distribution notes</Text>
-        <TextInput
-          value={notes}
-          onChangeText={setNotes}
-          multiline
-          placeholder="Optional field notes"
-          placeholderTextColor="#8ba0b7"
-          style={{
-            minHeight: 96,
-            borderWidth: 1,
-            borderColor: theme.colors.inputBorder,
-            borderRadius: 16,
-            paddingHorizontal: 14,
-            paddingVertical: 14,
-            color: theme.colors.text,
-            backgroundColor: theme.colors.inputBg
-          }}
-        />
-      </View>
+          <Input label="Field Notes" value={notes} onChangeText={setNotes} placeholder="Optional notes about this handoff..." multiline />
 
-      {error ? (
-        <Panel tone="warning">
-          <Text style={{ color: theme.colors.dangerText, fontWeight: "700" }}>{error}</Text>
-        </Panel>
-      ) : null}
-
-      <Button
-        label={
-          !hasAllocations
-            ? "Await admin allocation setup"
-            : saving
-              ? "Saving distribution..."
-              : isOnline
-                ? "Confirm distribution"
-                : "Queue distribution offline"
-        }
-        onPress={hasAllocations ? confirmDistribution : () => undefined}
-        variant={result.already_claimed ? "secondary" : "primary"}
-      />
-      <Pressable
-        onPress={() => router.replace("/(staff)/scanner")}
-        style={{ minHeight: 48, alignItems: "center", justifyContent: "center" }}
-      >
-        <Text style={{ color: theme.colors.primary, fontWeight: "700" }}>Scan another beneficiary</Text>
-      </Pressable>
+          {error && <Text style={{ color: "#ef4444" }}>{error}</Text>}
+          <Button label={saving ? "Saving..." : "Submit Distribution"} onPress={confirmDistribution} />
+        </View>
+      )}
     </Screen>
   );
 }
+
+const styles = {
+  eventOption: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff"
+  },
+  eventOptionActive: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.surfaceMuted
+  },
+  eventOptionText: {
+    fontWeight: "600",
+    color: "#64748b"
+  },
+  eventOptionTextActive: {
+    color: theme.colors.primary,
+    fontWeight: "800"
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: "900",
+    color: "#64748b",
+    letterSpacing: 0.5
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 12
+  },
+  quantityInput: {
+    width: 60,
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    textAlign: "center",
+    fontWeight: "800",
+    color: "#0f172a"
+  }
+};

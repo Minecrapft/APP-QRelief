@@ -3,6 +3,7 @@ import { Text, View } from "react-native";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { AddressInput } from "@/components/ui/AddressInput";
 import { Panel, SectionHeader } from "@/components/ui/Panel";
 import { RoleSelect } from "@/components/ui/RoleSelect";
 import { Screen } from "@/components/ui/Screen";
@@ -164,7 +165,7 @@ export default function SignUpScreen() {
             keyboardType="phone-pad"
             placeholder="+63 900 000 0000"
           />
-          <Input
+          <AddressInput
             label="Home address"
             value={address}
             onChangeText={setAddress}

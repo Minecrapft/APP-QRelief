@@ -1,4 +1,4 @@
-# QRelief Build Plan - Event Turnout Prediction
+npx supabase db push# QRelief Build Plan - Event Turnout Prediction
 
 > Forecast expected attendance for relief events using QRelief history, weather signals, and location context.
 
@@ -187,10 +187,10 @@ A reliable, operationally safe forecasting workflow.
 
 ### Scope
 
-- [ ] Generate short explanation text from the structured prediction output
-- [ ] Keep explanation grounded in numeric factors
-- [ ] Never let generative text replace the deterministic forecast
-- [ ] Add clear fallback when AI explanation is unavailable
+- [x] Generate short explanation text from the structured prediction output
+- [x] Keep explanation grounded in numeric factors
+- [x] Never let generative text replace the deterministic forecast
+- [x] Add clear fallback when AI explanation is unavailable
 
 ### Deliverable
 

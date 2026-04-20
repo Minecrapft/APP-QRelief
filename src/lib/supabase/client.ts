@@ -10,5 +10,26 @@ export const supabase = createClient<Database>(env.supabaseUrl, env.supabaseAnon
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false
-  }
+  },
+  global: {
+    fetch: (url, options) => {
+      const headers = new Headers(options?.headers);
+      headers.set("Cache-Control", "no-cache");
+      
+      const isFunctionCall = url.toString().includes("/functions/v1/");
+      if (isFunctionCall) {
+        console.log(`[Edge Function Call] ${url}`);
+        console.log(`[Headers]`, {
+          hasAuth: headers.has("Authorization"),
+          hasApiKey: headers.has("apikey"),
+          contentType: headers.get("Content-Type")
+        });
+      }
+
+      return fetch(url, {
+        ...options,
+        headers,
+      });
+    },
+  },
 });

@@ -115,6 +115,9 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: theme.radii.lg,
     backgroundColor: "rgba(255,255,255,0.9)",
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     borderWidth: 1,
     borderColor: theme.colors.cardBorder,
     ...theme.shadow

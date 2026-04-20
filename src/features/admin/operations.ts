@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase/client";
+import { env } from "@/lib/supabase/env";
 import {
   BeneficiaryRecord,
   DistributionItemRecord,
@@ -79,7 +80,7 @@ export async function saveEvent(payload: Partial<EventRecord> & Pick<EventRecord
 }
 
 export async function fetchEventDetail(id: string) {
-  const [eventResult, allocationsResult, assignmentsResult, inventoryResult, staffResult] = await Promise.all([
+  const [eventResult, allocationsResult, assignmentsResult, inventoryResult, staffResult, beneficiariesResult] = await Promise.all([
     supabase.from("events").select("*").eq("id", id).single(),
     supabase
       .from("event_items")
@@ -92,7 +93,11 @@ export async function fetchEventDetail(id: string) {
       .eq("event_id", id)
       .order("created_at", { ascending: false }),
     supabase.from("inventory_items").select("*").order("name"),
-    supabase.from("staff").select("*, profile:profiles(*)").eq("is_active", true).order("created_at", { ascending: false })
+    supabase.from("staff").select("*, profile:profiles(*)").order("created_at", { ascending: false }),
+    supabase
+      .from("beneficiaries")
+      .select("id, beneficiary_latitude, beneficiary_longitude, location_confidence")
+      .eq("status", "approved")
   ]);
 
   if (eventResult.error) throw eventResult.error;
@@ -100,13 +105,20 @@ export async function fetchEventDetail(id: string) {
   if (assignmentsResult.error) throw assignmentsResult.error;
   if (inventoryResult.error) throw inventoryResult.error;
   if (staffResult.error) throw staffResult.error;
+  if (beneficiariesResult.error) throw beneficiariesResult.error;
 
   return {
     event: eventResult.data as EventRecord,
     allocations: (allocationsResult.data ?? []) as EventItemRecord[],
     assignments: (assignmentsResult.data ?? []) as StaffAssignmentRecord[],
     inventoryItems: (inventoryResult.data ?? []) as InventoryItemRecord[],
-    availableStaff: (staffResult.data ?? []) as StaffRecord[]
+    availableStaff: (staffResult.data ?? []) as StaffRecord[],
+    beneficiaries: ((beneficiariesResult.data ?? []) as Array<{
+      id: string;
+      beneficiary_latitude: number | null;
+      beneficiary_longitude: number | null;
+      location_confidence: number;
+    }>).filter(b => b.beneficiary_latitude && b.beneficiary_longitude)
   };
 }
 
@@ -309,6 +321,37 @@ export async function fetchWeatherEnrichedEventTurnoutPrediction(event: EventRec
   });
 
   return enrichedPrediction;
+}
+
+export async function generateTurnoutExplanation(
+  prediction: WeatherEnrichedEventTurnoutPrediction
+): Promise<string | null> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      console.warn("No active session for generating turnout explanation");
+      return null;
+    }
+
+    const { data, error } = await supabase.functions.invoke("generate-turnout-explanation", {
+      body: {
+        predicted_turnout: prediction.predicted_turnout,
+        confidence_label: prediction.confidence_label,
+        confidence_score: prediction.confidence_score,
+        explanation_factors: prediction.explanation_factors
+      }
+    });
+
+    if (error) {
+      console.warn("Failed to generate turnout explanation:", error);
+      return null;
+    }
+
+    return data.narrative ?? null;
+  } catch (error) {
+    console.warn("Error generating turnout explanation:", error);
+    return null;
+  }
 }
 
 export async function upsertEventAllocation(payload: {
