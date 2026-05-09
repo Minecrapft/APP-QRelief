@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="./assets/branding/qrelief-logo.png" alt="QRelief Logo" width="200" />
+</div>
+
 # QRelief
 
 > One Scan, One Claim, No One Left Behind
