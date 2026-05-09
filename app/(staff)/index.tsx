@@ -1,26 +1,23 @@
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { router } from "expo-router";
 
-import { Button } from "@/components/ui/Button";
 import { MetricCard, Panel, SectionHeader } from "@/components/ui/Panel";
 import { Screen } from "@/components/ui/Screen";
 import { SignOutAction } from "@/components/ui/SignOutAction";
 import { theme } from "@/constants/theme";
 import {
   fetchAssignedEvents,
-  fetchRecentDistributions,
   preloadBeneficiaryRosterForEvent
 } from "@/features/staff/distribution";
 import { useAuth } from "@/providers/AuthProvider";
 import { useOperations } from "@/providers/OperationsProvider";
-import { DistributionRecord, EventRecord } from "@/types/domain";
+import { EventRecord } from "@/types/domain";
 
 export default function StaffHomeScreen() {
   const { profile, signOut } = useAuth();
   const { pendingQueueCount, syncStatus, syncPendingQueue } = useOperations();
   const [events, setEvents] = useState<EventRecord[]>([]);
-  const [recentDistributions, setRecentDistributions] = useState<DistributionRecord[]>([]);
   const [preloadingRosters, setPreloadingRosters] = useState(false);
 
   useEffect(() => {
@@ -36,29 +33,25 @@ export default function StaffHomeScreen() {
       })
       .catch(() => setEvents([]))
       .finally(() => setPreloadingRosters(false));
-    void fetchRecentDistributions().then(setRecentDistributions).catch(() => setRecentDistributions([]));
   }, []);
 
   return (
     <Screen
       title={`Hello, ${profile?.full_name ?? "Staff"}`}
-      subtitle="Work only from your assigned events, then scan or manually verify each beneficiary before distribution."
+      subtitle="Work from your assigned events, scan beneficiaries, and monitor your offline sync status."
       action={<SignOutAction onConfirm={signOut} />}
     >
       <Panel tone="strong">
         <SectionHeader
           eyebrow="Field Operations"
           title="Assigned event coverage"
-          subtitle="Open the scanner from any event you are responsible for today."
+          subtitle="Select an event below to begin scanning or jump straight to the Scanner tab."
         />
       </Panel>
 
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
         <View style={{ width: "47%" }}>
-          <MetricCard label="Assigned events" value={events.length} tone="accent" />
-        </View>
-        <View style={{ width: "47%" }}>
-          <MetricCard label="Recent distributions" value={recentDistributions.length} />
+          <MetricCard label="My assignments" value={events.length} tone="accent" />
         </View>
         <View style={{ width: "47%" }}>
           <MetricCard label="Queued offline" value={pendingQueueCount} />
@@ -97,8 +90,8 @@ export default function StaffHomeScreen() {
       <Panel tone={events.length > 0 ? "success" : "warning"}>
         <SectionHeader
           eyebrow="Assignments"
-          title="Assigned events"
-          subtitle={events.length > 0 ? "Select an event to begin verification." : "No events assigned yet."}
+          title="Events assigned to you"
+          subtitle={events.length > 0 ? "Tap an event to pre-configure the scanner." : "No active assignments."}
         />
         {events.length === 0 ? (
           <Text style={{ color: theme.colors.textMuted }}>Wait for an administrator to assign an event.</Text>
@@ -118,46 +111,13 @@ export default function StaffHomeScreen() {
                 borderRadius: theme.radii.md,
                 backgroundColor: "rgba(255,255,255,0.6)",
                 borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.5)"
+                borderColor: "rgba(255,255,255,0.5)",
+                marginBottom: 8
               }}
             >
-              <Text style={{ color: theme.colors.text, fontWeight: "800" }}>{event.title}</Text>
+              <Text style={{ color: theme.colors.text, fontWeight: "800", fontSize: 16 }}>{event.title}</Text>
               <Text style={{ color: theme.colors.textMuted }}>{event.location}</Text>
             </Pressable>
-          ))
-        )}
-      </Panel>
-
-      <Button label="Open scanner" onPress={() => router.push("/(staff)/scanner")} />
-
-      <Panel>
-        <SectionHeader
-          eyebrow="Activity"
-          title="Recent distributions"
-          subtitle="Your latest confirmed handoffs are summarized below."
-        />
-        {recentDistributions.length === 0 ? (
-          <Text style={{ color: theme.colors.textMuted }}>No recent distributions yet.</Text>
-        ) : (
-          recentDistributions.map((distribution) => (
-            <View
-              key={distribution.id}
-              style={{
-                gap: 4,
-                padding: 16,
-                borderRadius: theme.radii.md,
-                backgroundColor: theme.colors.surfaceMuted,
-                borderWidth: 1,
-                borderColor: theme.colors.cardBorder
-              }}
-            >
-              <Text style={{ color: theme.colors.text, fontWeight: "800" }}>
-                {distribution.beneficiary?.full_name ?? distribution.beneficiary_id}
-              </Text>
-              <Text style={{ color: theme.colors.textMuted }}>
-                {distribution.event?.title ?? distribution.event_id}
-              </Text>
-            </View>
           ))
         )}
       </Panel>

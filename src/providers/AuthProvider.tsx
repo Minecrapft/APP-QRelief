@@ -62,14 +62,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
     ]);
 
     if (profileError) {
+      if (profileError.code === "PGRST116") {
+        console.warn("Profile not found for user", userId);
+        setProfile(null);
+        return;
+      }
       throw profileError;
     }
 
     if (beneficiaryError) {
-      throw beneficiaryError;
+      console.warn("Beneficiary record fetch error", beneficiaryError);
     }
 
-    setProfile(profileData as ProfileRecord);
+    setProfile((profileData as ProfileRecord) ?? null);
     setBeneficiaryRecord((beneficiaryData as BeneficiaryRecord | null) ?? null);
   };
 

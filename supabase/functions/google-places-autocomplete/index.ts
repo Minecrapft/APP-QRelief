@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
   }
 
   if (!authHeader) {
-    return json({ error: "Missing authorization header." }, 401);
+    return json({ error: "Missing authorization header. Please log in again.", code: "AUTH_FAILURE" }, 200);
   }
 
   const authClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
   } = await authClient.auth.getUser();
 
   if (authError || !user) {
-    return json({ error: "Unauthorized request." }, 401);
+    return json({ error: "Unauthorized request. Session expired.", code: "AUTH_FAILURE" }, 200);
   }
 
   const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
@@ -65,12 +65,9 @@ Deno.serve(async (req) => {
     .eq("id", user.id)
     .single();
 
-  if (profileError) {
-    return json({ error: "Unable to verify caller role." }, 500);
-  }
-
-  if (!profile || !["admin", "staff"].includes(profile.role)) {
-    return json({ error: "This endpoint is restricted to operations staff." }, 403);
+  if (profileError || !profile) {
+    console.warn("Address look up: Profile not found or error", profileError);
+    return json({ error: "Unable to verify user profile.", code: "FORBIDDEN" }, 200);
   }
 
   const body = (await req.json()) as PlacesRequest;
@@ -98,20 +95,48 @@ Deno.serve(async (req) => {
     };
   }
 
-  const googleResponse = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Goog-Api-Key": googleMapsApiKey,
-      "X-Goog-FieldMask":
-        "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text"
-    },
-    body: JSON.stringify(requestBody)
-  });
+  try {
+    const googleResponse = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": googleMapsApiKey,
+        "X-Goog-FieldMask":
+          "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text"
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-  if (!googleResponse.ok) {
-    const details = await googleResponse.text();
-    return json({ error: "Google Places lookup failed.", details }, 502);
+    if (!googleResponse.ok) {
+      const details = await googleResponse.text();
+      console.error("Google Places API Error:", details);
+      return json({ error: `Google lookup failed (${googleResponse.status}).`, code: "GOOGLE_ERROR" }, 200);
+    }
+
+    const payload = await googleResponse.json();
+    const suggestions = Array.isArray(payload.suggestions)
+      ? payload.suggestions
+          .map((entry: any) => {
+            const prediction = entry.placePrediction;
+
+            if (!prediction?.text?.text) {
+              return null;
+            }
+
+            return {
+              place_id: prediction.placeId ?? "",
+              text: prediction.text.text,
+              main_text: prediction.structuredFormat?.mainText?.text ?? prediction.text.text,
+              secondary_text: prediction.structuredFormat?.secondaryText?.text ?? ""
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    return json({ suggestions });
+  } catch (error) {
+    console.error("Address fetch exception:", error);
+    return json({ error: "Internal system error during address lookup.", code: "EXCEPTION" }, 200);
   }
 
   const payload = await googleResponse.json();

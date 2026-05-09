@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text } from "react-native";
 
+import { AddressInput } from "@/components/ui/AddressInput";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Screen } from "@/components/ui/Screen";
@@ -51,7 +52,7 @@ export default function BeneficiaryProfileScreen() {
     >
       <Input label="Full name" value={fullName} onChangeText={setFullName} />
       <Input label="Contact number" value={contactNumber} onChangeText={setContactNumber} />
-      <Input label="Address" value={address} onChangeText={setAddress} multiline />
+      <AddressInput label="Address" value={address} onChangeText={setAddress} multiline />
       <Input label="Household size" value={householdSize} onChangeText={setHouseholdSize} keyboardType="number-pad" />
       <Input label="Government ID" value={governmentId} onChangeText={setGovernmentId} />
       {error ? <Text style={{ color: "#9f1239" }}>{error}</Text> : null}

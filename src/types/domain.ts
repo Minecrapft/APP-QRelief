@@ -27,6 +27,9 @@ export interface BeneficiaryRecord {
   status: BeneficiaryStatus;
   qr_token: string | null;
   rejection_reason: string | null;
+  beneficiary_latitude: number | null;
+  beneficiary_longitude: number | null;
+  location_confidence: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +75,9 @@ export interface EventRecord {
   title: string;
   description: string | null;
   location: string;
+  event_latitude: number | null;
+  event_longitude: number | null;
+  location_confidence: number | null;
   starts_at: string;
   ends_at: string | null;
   status: EventStatus;
@@ -158,6 +164,51 @@ export interface StaffBeneficiaryLookupResult {
   allocation_items: EventItemRecord[];
   already_claimed: boolean;
   existing_distribution: DistributionRecord | null;
+}
+
+export interface EventTurnoutPredictionFactor {
+  label: string;
+  value: number | string | null;
+  detail: string;
+}
+
+export interface EventTurnoutPrediction {
+  event_id: string;
+  predicted_turnout: number;
+  confidence_label: "low" | "medium" | "high";
+  confidence_score: number;
+  recommended_buffer: number;
+  recommended_prep_target: number;
+  approved_beneficiary_pool: number;
+  historical_event_count: number;
+  historical_avg_turnout: number;
+  weekday_sample_count: number;
+  weekday_avg_turnout: number;
+  timeslot_label: string;
+  timeslot_sample_count: number;
+  timeslot_avg_turnout: number;
+  allocation_item_count: number;
+  allocation_capacity: number | null;
+  generated_at: string;
+  explanation_factors: EventTurnoutPredictionFactor[];
+}
+
+export interface EventWeatherForecastSummary {
+  location_name: string;
+  forecast_date: string;
+  temperature_max: number | null;
+  precipitation_probability_max: number | null;
+  precipitation_sum: number | null;
+  wind_speed_10m_max: number | null;
+  weather_code: number | null;
+}
+
+export interface WeatherEnrichedEventTurnoutPrediction extends EventTurnoutPrediction {
+  base_predicted_turnout: number;
+  weather_adjustment_delta: number;
+  weather_adjustment_reason: string | null;
+  weather_adjusted_turnout: number;
+  weather_forecast: EventWeatherForecastSummary | null;
 }
 
 export interface SignUpPayload {
