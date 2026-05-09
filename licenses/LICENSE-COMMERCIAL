@@ -1,0 +1,35 @@
+QRelief Commercial & Enterprise License
+Version 1.0, May 2026
+
+Copyright (c) 2026 QRelief Team / Government Project Entity
+
+1. DEFINITIONS
+
+"Software" refers to the QRelief disaster-relief distribution application, including source code, documentation, and associated assets.
+"Commercial Use" means any use of the Software for the purpose of monetary reward or commercial gain, or deployment within a national government or enterprise infrastructure that exceeds the scope of non-commercial research or small-scale community volunteer work.
+
+2. LICENSE GRANT
+
+Subject to the terms and conditions of this License and a separate written agreement with the Copyright Holder, you are granted a non-exclusive, non-transferable, worldwide license to:
+a) Install and use the Software for internal business or government operations.
+b) Modify the Software for integration into your specific operational workflows.
+c) Deploy the Software to authorized staff and beneficiaries within your organization.
+
+3. RESTRICTIONS
+
+Unless expressly permitted in a separate written agreement, you may not:
+a) Sublicense, rent, lease, or lend the Software to third parties.
+b) Redistribute the Software as a standalone commercial product or service that competes with the official QRelief platform.
+c) Remove or alter any copyright notices or branding from the Software.
+
+4. WARRANTY AND LIABILITY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE.
+
+5. CONTACT
+
+For commercial licensing inquiries, enterprise support, or national-scale deployment authorization, please contact:
+[your-email@example.com]
+
+---
+Note: This license is intended for professional deployments. All personal, educational, and community-volunteer uses are covered under the MIT License.
